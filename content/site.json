@@ -7,7 +7,7 @@
     "shareImage": "assets/img/share.jpg"
   },
   "brand": {
-    "name": "SUL0557",
+    "name": "SUL",
     "logo": "assets/img/logo.png",
     "headerLogoSize": 44
   },
@@ -46,7 +46,7 @@
     "pixelBorder": 3
   },
   "background": {
-    "type": "pixel-sky",
+    "type": "image",
     "skyTop": "#fbe3f6",
     "skyMid": "#e9ecff",
     "skyBottom": "#ffe9f7",
@@ -65,7 +65,7 @@
   "animations": {
     "enabled": true,
     "speed": 1,
-    "entrance": "pop",
+    "entrance": "blur",
     "stagger": 90,
     "pageTransition": "fade",
     "cardHover": "lift",
@@ -89,23 +89,12 @@
   "socials": [
     {
       "platform": "instagram",
-      "url": "https://instagram.com/sul0557"
-    },
-    {
-      "platform": "youtube",
-      "url": ""
-    },
-    {
-      "platform": "tiktok",
-      "url": ""
-    },
-    {
-      "platform": "soundcloud",
-      "url": ""
+      "url": "https://www.instagram.com/sul055777/",
+      "id": "so-04mh09uvv"
     }
   ],
   "footer": {
-    "tagline": "Beats, drum kits & visuals by SUL0557.",
+    "tagline": "Beats, drum kits & visuals by SUL.",
     "showSocials": true,
     "showLogo": true,
     "columns": [
@@ -132,20 +121,20 @@
           {
             "id": "l3",
             "text": "Contact",
-            "link": "https://instagram.com/sul0557"
+            "link": "https://instagram.com/sul055777"
           },
           {
             "id": "l4",
             "text": "Instagram",
-            "link": "https://instagram.com/sul0557"
+            "link": "https://instagram.com/sul055777"
           }
         ]
       }
     ],
-    "newsletterTitle": "STAY IN THE LOOP",
-    "newsletterText": "New drops, free kits and updates straight to your inbox.",
+    "newsletterTitle": "",
+    "newsletterText": "",
     "newsletterAction": "",
-    "copyright": "© 2026 SUL0557 · GAME OVER? NEVER."
+    "copyright": "© 2026 SUL0557 ·"
   },
   "pages": [
     {
@@ -163,37 +152,31 @@
           "logo": "assets/img/logo.png",
           "windowTitle": "sul0557.exe",
           "status": "PLAYER 1: SUL0557",
-          "title": "BEATS &\n{VISUALS}",
-          "text": "Hi, I'm Sul. I make drum kits, cover art & edits for producers who want to stand out.",
+          "title": "sul",
+          "text": "Hi, I'm Sul. I make beats & visuals ",
           "smallText": "Insta @sul0557",
-          "smallLink": "https://instagram.com/sul0557",
+          "smallLink": "#/",
           "buttons": [
             {
               "id": "b1",
-              "text": "▶ ENTER SHOP",
+              "text": "▶ ENTER STORE",
               "link": "#/kits",
               "style": "primary",
               "newTab": false
-            },
-            {
-              "id": "b2",
-              "text": "MUSEUM",
-              "link": "#/museum",
-              "style": "ghost",
-              "newTab": false
             }
           ],
-          "showSearch": true,
+          "showSearch": false,
           "searchPlaceholder": "search kits...",
-          "chips": "drum kit, free, 808, loops",
+          "chips": "",
           "showReviews": false,
-          "fullHeight": false,
-          "align": "left"
+          "fullHeight": true,
+          "align": "left",
+          "width": "normal"
         },
         {
           "id": "s-reviews",
           "type": "reviews",
-          "visible": true,
+          "visible": false,
           "title": "",
           "subtitle": "",
           "spacing": "small"
@@ -202,13 +185,13 @@
           "id": "s-kits-feat",
           "type": "kits",
           "visible": true,
-          "title": "ITEM {SHOP}",
-          "subtitle": "fresh kits, ready to equip",
-          "style": "box",
+          "title": "PRODUCTS",
+          "subtitle": "",
+          "style": "plain",
           "filter": "featured",
-          "limit": 3,
+          "limit": 0,
           "columns": 3,
-          "showSearch": false,
+          "showSearch": true,
           "moreText": "SEE ALL KITS ▶",
           "moreLink": "#/kits",
           "more2Text": "",
@@ -219,7 +202,7 @@
         {
           "id": "s-gal-feat",
           "type": "gallery",
-          "visible": true,
+          "visible": false,
           "title": "RECENT {DROPS}",
           "subtitle": "cover arts & edits",
           "category": "all",
@@ -257,13 +240,13 @@
             {
               "id": "c3",
               "label": "EXCLUSIVITY",
-              "you": "Made from scratch",
-              "them": "Recycled sounds"
+              "you": "Good Sound selection",
+              "them": "Bad Sound selection "
             },
             {
               "id": "c4",
               "label": "STYLES",
-              "you": "Built for the underground",
+              "you": "Built for more than one genre",
               "them": "Generic presets"
             },
             {
@@ -279,12 +262,12 @@
           "type": "cta",
           "visible": true,
           "title": "SUL",
-          "text": "Need a cover art, an edit or custom drums? Pick an option below.",
+          "text": "Need kits? cover art, an edit? Pick an option below.",
           "buttons": [
             {
               "id": "b3",
               "text": "▶ DM ON INSTAGRAM",
-              "link": "https://instagram.com/sul0557",
+              "link": "https://instagram.com/sul055777",
               "style": "primary",
               "newTab": true
             },
@@ -334,7 +317,7 @@
     },
     {
       "id": "museum",
-      "title": "MUSEUM",
+      "title": "ART",
       "inNav": true,
       "icon": "image",
       "sections": [
@@ -363,72 +346,126 @@
           "align": "left"
         }
       ]
+    },
+    {
+      "id": "beats",
+      "title": "BEATS",
+      "inNav": true,
+      "sections": [
+        {
+          "id": "s-8yliuj8mh",
+          "type": "text",
+          "visible": true,
+          "align": "center",
+          "title": "sul beats",
+          "text": "ALL OF MY BEATS ARE HERE , DM ME TO USE THEM.",
+          "size": "large",
+          "buttons": [],
+          "width": "normal"
+        },
+        {
+          "id": "s-no38qihak",
+          "type": "links",
+          "visible": true,
+          "align": "center",
+          "title": "BEATS (LISTENING ONLY)",
+          "subtitle": "dm to use or purchase any of these beats.",
+          "links": [
+            {
+              "id": "b-6l5sjfa0z",
+              "text": "CLICK HERE",
+              "link": "https://untitled.stream/library/project/IWmeLQoesdf1ugALAOLwt",
+              "style": "holo",
+              "newTab": true
+            }
+          ],
+          "panel": true,
+          "width": "normal",
+          "spacing": "large"
+        }
+      ]
     }
   ],
   "kits": [
     {
-      "id": "k1",
-      "title": "CLOUD 9 KIT",
-      "image": "uploads/kit-1.jpg",
-      "price": "$25",
-      "oldPrice": "$40",
+      "id": "k-t08y41pa5",
+      "title": "ROSYRA Multikit (soon)",
+      "image": "uploads/logo-1-mwl4x3wp.png",
+      "price": "",
+      "oldPrice": "",
       "badge": "NEW",
-      "description": "120+ sounds: drums, 808s, fx & melodic one shots.",
+      "tags": "DRUMS , FX , SERUM BANK , LOOPS",
+      "description": "ROSYRA Multikit @SUL @VORTY.wav , over 300 custom and heavily processed sounds.",
       "buttonText": "GO TO",
-      "link": "https://instagram.com/sul0557",
+      "link": "#/kits",
       "newTab": true,
-      "featured": true,
+      "featured": false,
       "soldOut": false,
-      "visible": true,
-      "tags": "DRUMS, 808S, FX, ONE SHOTS"
+      "visible": true
     },
     {
-      "id": "k2",
-      "title": "SUGAR RUSH",
-      "image": "uploads/kit-2.jpg",
-      "price": "$20",
+      "id": "k-lom2wt4hr",
+      "title": "@SUL 1K MULTIKIT (DEMO)",
+      "image": "uploads/1k-demo-mwl5dc9q.png",
+      "price": "0",
       "oldPrice": "",
       "badge": "",
-      "description": "Bouncy drums and sweet loops for hyperpop & plugg.",
+      "tags": "FREE , DRUMS , ONESHOTS",
+      "description": "",
       "buttonText": "GO TO",
-      "link": "https://instagram.com/sul0557",
+      "link": "https://payhip.com/b/NEXGi",
       "newTab": true,
-      "featured": true,
+      "featured": false,
       "soldOut": false,
-      "visible": true,
-      "tags": "DRUMS, LOOPS, PLUGG"
-    },
-    {
-      "id": "k3",
-      "title": "HOLO DRUMS VOL. 1",
-      "image": "uploads/kit-3.jpg",
-      "price": "$30",
-      "oldPrice": "",
-      "badge": "BEST SELLER",
-      "description": "Crispy hats, glassy snares and heavy 808s.",
-      "buttonText": "GO TO",
-      "link": "https://instagram.com/sul0557",
-      "newTab": true,
-      "featured": true,
-      "soldOut": false,
-      "visible": true,
-      "tags": "DRUMS, 808S, HATS"
+      "visible": true
     },
     {
       "id": "k4",
-      "title": "STARDUST",
-      "image": "uploads/kit-4.jpg",
-      "price": "FREE",
-      "oldPrice": "",
-      "badge": "FREE",
-      "description": "A free taste of the sound. Go crazy.",
+      "title": "@SUL 1K MULTIKIT",
+      "image": "uploads/sul-1k-community-multikit-mwl5c9wd.png",
+      "price": "$5",
+      "oldPrice": "$20",
+      "badge": "",
+      "description": "",
       "buttonText": "GO TO",
-      "link": "https://instagram.com/sul0557",
+      "link": "https://payhip.com/b/Kcamw",
       "newTab": true,
       "featured": false,
       "soldOut": false,
       "visible": true,
-      "tags": "FREE, DRUMS"
+      "tags": "DRUMS , MIDI , ONESHOTS , LOOPS , PRESETS "
+    },
+    {
+      "id": "k3",
+      "title": "FIREWORK STASH KIT @SUL0557 @VORTY.WAV",
+      "image": "uploads/firwowke-mwl587v7.webp",
+      "price": "$15",
+      "oldPrice": "",
+      "badge": "",
+      "description": "",
+      "buttonText": "GO TO",
+      "link": "https://payhip.com/b/RvrSF",
+      "newTab": true,
+      "featured": true,
+      "soldOut": false,
+      "visible": true,
+      "tags": "DRUMS , SERUMBANK , MIDI , LOOPS"
+    },
+    {
+      "id": "k2",
+      "title": "COMIC MULITIKIT @SUL",
+      "image": "uploads/title-mwl5320k.png",
+      "price": "$10",
+      "oldPrice": "25",
+      "badge": "",
+      "description": "",
+      "buttonText": "GO TO",
+      "link": "https://payhip.com/b/5Seo7",
+      "newTab": true,
+      "featured": true,
+      "soldOut": false,
+      "visible": true,
+      "tags": "DRUMS, LOOPS , FLP , ONESHOTS"
     }
   ],
   "galleryCategories": [
@@ -446,7 +483,7 @@
       "id": "g1",
       "category": "cover-arts",
       "type": "image",
-      "src": "uploads/cover-1.jpg",
+      "src": "uploads/broke-mwl5fnp8.webp",
       "thumb": "",
       "title": "Cover Art",
       "description": "single cover",
@@ -457,7 +494,7 @@
       "id": "g2",
       "category": "edits",
       "type": "image",
-      "src": "uploads/edit-1.jpg",
+      "src": "uploads/vivid-decadence-mwl5g17t.webp",
       "thumb": "",
       "title": "Edit #1",
       "description": "Swap this for a YouTube link or an .mp4 in the admin panel",
@@ -465,10 +502,21 @@
       "visible": true
     },
     {
+      "id": "g-egwct1b1v",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/tsuki3-mwl5jb1o.png",
+      "thumb": "",
+      "title": "tsuki3",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
       "id": "g3",
       "category": "cover-arts",
       "type": "image",
-      "src": "uploads/cover-2.jpg",
+      "src": "uploads/p2-mwl5fxpc.webp",
       "thumb": "",
       "title": "Night Drive",
       "description": "ep cover",
@@ -479,73 +527,175 @@
       "id": "g4",
       "category": "cover-arts",
       "type": "image",
-      "src": "uploads/cover-3.jpg",
+      "src": "uploads/kittlenluv-mwl5gijl.webp",
       "thumb": "",
-      "title": "Bubblegum",
+      "title": "",
       "description": "single cover",
       "link": "",
       "visible": true
     },
     {
-      "id": "g5",
-      "category": "edits",
+      "id": "g-ogcctsxvi",
+      "category": "cover-arts",
       "type": "image",
-      "src": "uploads/edit-2.jpg",
+      "src": "uploads/sul-new-era-logo-2-mwl5hkim.png",
       "thumb": "",
-      "title": "Edit #2",
-      "description": "music video edit",
+      "title": "",
+      "description": "",
       "link": "",
       "visible": true
     },
     {
-      "id": "g6",
+      "id": "g-k400zyb1l",
       "category": "cover-arts",
       "type": "image",
-      "src": "uploads/cover-4.jpg",
+      "src": "uploads/the-somh-v2-mwl5jb1f.png",
       "thumb": "",
-      "title": "Dreamscape",
-      "description": "album cover",
+      "title": "the somh v2",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-68zta0b1d",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/t2-mwl5jb18.png",
+      "thumb": "",
+      "title": "t2",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-yn1vrqb16",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/staks-logo-mwl5jb0z.png",
+      "thumb": "",
+      "title": "staks logo",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-7yr1fqb0u",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/sssss-mwl5jb0p.png",
+      "thumb": "",
+      "title": "sssss",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-vfe9npb0n",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/solace-mwl5jb0a.png",
+      "thumb": "",
+      "title": "solace",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-xkr0phb05",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/prayfirst-mwl5jazx.png",
+      "thumb": "",
+      "title": "prayfirst",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-0p0m5hazt",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/freezi-5-mwl5jazn.png",
+      "thumb": "",
+      "title": "freezi 5",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-p6aw1eazi",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/eazy-4-mwl5jazb.png",
+      "thumb": "",
+      "title": "eazy 4",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-907wffaz8",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/clee-mwl5jaz3.png",
+      "thumb": "",
+      "title": "clee",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-8v0shfayy",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/change1-mwl5jayp.png",
+      "thumb": "",
+      "title": "change1",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-c2cx5aayi",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/8way-mwl5jayc.png",
+      "thumb": "",
+      "title": "8way",
+      "description": "",
+      "link": "",
+      "visible": true
+    },
+    {
+      "id": "g-zpwalnoex",
+      "category": "cover-arts",
+      "type": "image",
+      "src": "uploads/7diam-mwl5hvr8.png",
+      "thumb": "",
+      "title": "",
+      "description": "",
       "link": "",
       "visible": true
     }
   ],
   "announcement": {
-    "enabled": true,
-    "text": "✦ NEW DROP: CLOUD 9 KIT IS OUT ✦",
+    "enabled": false,
+    "text": "",
     "linkText": "GET IT ▶",
     "link": "#/kits",
     "countdownTo": ""
   },
-  "reviews": [
-    {
-      "id": "r1",
-      "avatar": "",
-      "handle": "@producer.one",
-      "text": "these drums slap different fr"
-    },
-    {
-      "id": "r2",
-      "avatar": "",
-      "handle": "@beatsbyjay",
-      "text": "cloud 9 kit is in every beat now"
-    },
-    {
-      "id": "r3",
-      "avatar": "",
-      "handle": "@nova.prod",
-      "text": "cleanest 808s i own"
-    },
-    {
-      "id": "r4",
-      "avatar": "",
-      "handle": "@lilbeatz",
-      "text": "the cover art sul made me is crazy"
-    },
-    {
-      "id": "r5",
-      "avatar": "",
-      "handle": "@yungmix",
-      "text": "organized af, drag & drop ready"
-    }
-  ]
+  "reviews": [],
+  "adminEntry": {
+    "taps": 5,
+    "word": ""
+  },
+  "admin": {
+    "v": 1,
+    "salt": "a3AyobELUmPvGW7z2Jps+Q==",
+    "iter": 310000,
+    "iv": "QrbybEfNichtEmFC",
+    "ct": "2wcj4xAYDLXJrBegeq3CqzD1KfsPH8WlCPb+C8ZeyONEVxroQQXD9PAi+z8/o43GrS0prdoj2WR6OdYFs2FOe15Rbmc5OTkojn0=",
+    "t": 1794945863945
+  }
 }
