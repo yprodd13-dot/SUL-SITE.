@@ -492,12 +492,12 @@
     },
     {
       "id": "g2",
-      "category": "edits",
+      "category": "cover-arts",
       "type": "image",
       "src": "uploads/vivid-decadence-mwl5g17t.webp",
       "thumb": "",
-      "title": "Edit #1",
-      "description": "Swap this for a YouTube link or an .mp4 in the admin panel",
+      "title": "",
+      "description": "",
       "link": "",
       "visible": true
     },
@@ -518,7 +518,7 @@
       "type": "image",
       "src": "uploads/p2-mwl5fxpc.webp",
       "thumb": "",
-      "title": "Night Drive",
+      "title": "",
       "description": "ep cover",
       "link": "",
       "visible": true
