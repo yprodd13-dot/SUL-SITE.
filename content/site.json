@@ -754,7 +754,7 @@
         "id": "o-n3fyx951l"
       }
     ],
-    "enabled": false,
+    "enabled": true,
     "autoplay": true,
     "volume": 0.5,
     "shuffle": false,
