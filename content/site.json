@@ -296,9 +296,10 @@
           "type": "text",
           "visible": true,
           "title": "ITEM {SHOP}",
-          "text": "Hand-made drums, 808s, loops & one shots. Tap any kit to grab it.",
+          "text": "ALL OF SUL KIT'S ARE HERE.",
           "align": "left",
-          "size": "large"
+          "size": "large",
+          "buttons": []
         },
         {
           "id": "s-kits-all",
@@ -328,9 +329,10 @@
           "type": "text",
           "visible": true,
           "title": "THE {MUSEUM}",
-          "text": "Cover arts, edits & visuals. Click anything to see it big.",
+          "text": "Cover arts & visuals. Click anything to see it big.",
           "align": "left",
-          "size": "large"
+          "size": "large",
+          "buttons": []
         },
         {
           "id": "s-museum-gal",
@@ -368,7 +370,7 @@
         {
           "id": "s-no38qihak",
           "type": "links",
-          "visible": true,
+          "visible": false,
           "align": "center",
           "title": "BEATS (LISTENING ONLY)",
           "subtitle": "dm to use or purchase any of these beats.",
@@ -384,6 +386,24 @@
           "panel": true,
           "width": "normal",
           "spacing": "large"
+        },
+        {
+          "id": "s-66x6mw59l",
+          "type": "embed",
+          "visible": true,
+          "align": "left",
+          "title": "SUL BEATS",
+          "subtitle": "",
+          "code": "<iframe style=\"border-radius: 24px\" src=\"https://untitled.stream/embed/BKxn7ui3fjgt\" width=\"100%\" height=\"344\" allowFullScreen=\"\" allow=\"picture-in-picture\" frameborder=\"0\" loading=\"lazy\"></iframe>",
+          "mode": "auto",
+          "height": 0,
+          "maxWidth": 1600,
+          "cardImage": "",
+          "cardTitle": "",
+          "cardText": "",
+          "cardButton": "▶ LISTEN",
+          "scale": 130,
+          "width": "narrow"
         }
       ]
     },
