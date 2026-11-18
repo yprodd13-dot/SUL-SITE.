@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "meta": {
     "title": "SUL0557 — Drum Kits, Cover Art & Edits",
     "description": "Hi I'm Sul and I make beats & visuals. Drum kits, cover art and edits.",
@@ -43,7 +43,9 @@
     "buttonStyle": "pixel",
     "cardStyle": "pixel",
     "contentWidth": 1180,
-    "pixelBorder": 3
+    "pixelBorder": 3,
+    "scale": 100,
+    "scaleMobile": 100
   },
   "background": {
     "type": "image",
@@ -384,6 +386,32 @@
           "spacing": "large"
         }
       ]
+    },
+    {
+      "id": "pixel-connect",
+      "title": "PIXEL CONNECT",
+      "inNav": true,
+      "icon": "star",
+      "sections": [
+        {
+          "id": "s-8625p4rcc",
+          "type": "text",
+          "visible": true,
+          "align": "left",
+          "title": "PIXEL {CONNECT}",
+          "text": "Put the picture back together. Every game is a new piece of art ✦",
+          "size": "normal",
+          "buttons": []
+        },
+        {
+          "id": "s-6hmrkrrcc",
+          "type": "game",
+          "visible": true,
+          "align": "left",
+          "title": "",
+          "subtitle": ""
+        }
+      ]
     }
   ],
   "kits": [
@@ -697,5 +725,29 @@
     "iv": "QrbybEfNichtEmFC",
     "ct": "2wcj4xAYDLXJrBegeq3CqzD1KfsPH8WlCPb+C8ZeyONEVxroQQXD9PAi+z8/o43GrS0prdoj2WR6OdYFs2FOe15Rbmc5OTkojn0=",
     "t": 1794945863945
-  }
+  },
+  "music": {
+    "tracks": [],
+    "enabled": false,
+    "autoplay": true,
+    "volume": 0.5,
+    "shuffle": false,
+    "position": "bottom-left",
+    "startMinimized": false,
+    "label": "NOW PLAYING"
+  },
+  "icons": {},
+  "game": {
+    "images": [],
+    "title": "PIXEL CONNECT",
+    "minPieces": 6,
+    "maxPieces": 20,
+    "pixelate": true,
+    "pixelBlock": 6,
+    "sound": true,
+    "showGhost": true,
+    "winTitle": "YOU WIN!",
+    "winText": "Puzzle complete ✦"
+  },
+  "popups": []
 }
