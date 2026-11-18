@@ -19,6 +19,10 @@
     socials: [],
     footer: { tagline: '', text: '', showSocials: true, showLogo: true, columns: [], newsletterTitle: '', newsletterText: '', newsletterAction: '', copyright: '' },
     reviews: [],
+    music: { enabled: false, tracks: [], autoplay: true, volume: 0.5, shuffle: false, position: 'bottom-left', startMinimized: false, label: 'NOW PLAYING' },
+    popups: [],
+    icons: {},
+    game: { title: 'PIXEL CONNECT', images: [], minPieces: 6, maxPieces: 20, pixelate: true, pixelBlock: 6, sound: true, showGhost: true, winTitle: 'YOU WIN!', winText: 'Puzzle complete ✦' },
     pages: [{ id: 'home', title: 'HOME', inNav: true, sections: [] }],
     kits: [],
     galleryCategories: [],
@@ -80,9 +84,31 @@
     play: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     prev: '<path d="M15 5l-7 7 7 7"/>',
-    next: '<path d="M9 5l7 7-7 7"/>'
+    next: '<path d="M9 5l7 7-7 7"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    pause: '<path d="M8 5v14M16 5v14" stroke-width="3"/>',
+    volume: '<path d="M4 9.5h4l5-4v13l-5-4H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/>',
+    mute: '<path d="M4 9.5h4l5-4v13l-5-4H4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/>',
+    note: '<path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+    restart: '<path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4.5h4.5"/>',
+    eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+    'music-play': '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none"/>',
+    'music-pause': '<path d="M8 5v14M16 5v14" stroke-width="3"/>',
+    'music-next': '<path d="M5 5l9 7-9 7z" fill="currentColor"/><path d="M18 5v14"/>',
+    'music-prev': '<path d="M19 5l-9 7 9 7z" fill="currentColor"/><path d="M6 5v14"/>',
+    'music-volume': '<path d="M4 9.5h4l5-4v13l-5-4H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/>',
+    'music-mute': '<path d="M4 9.5h4l5-4v13l-5-4H4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/>',
+    'music-open': '<path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+    'music-min': '<path d="M5 12h14"/>',
+    'popup-close': '<path d="M6 6l12 12M18 6L6 18"/>'
   };
+  // built-in icon names that can be swapped for pictures in the admin
+  var ICON_ALIASES = { search: 'search', play: 'play', close: 'close', prev: 'prev', next: 'next', menu: 'menu' };
+  void ICON_ALIASES;
   function icon(name) {
+    // a custom picture uploaded in the admin (Icons & Button Images) wins over the built-in icon
+    var custom = cfg && cfg.icons && cfg.icons[name];
+    if (custom && asset(custom)) return '<img class="ico-img" src="' + esc(asset(custom)) + '" alt="" aria-hidden="true">';
     var p = ICONS[name] || ICONS.link;
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
   }
@@ -234,6 +260,8 @@
     r.setProperty('--surface-a', String(clamp(num(t.surfaceOpacity, 0.62), 0, 1)));
     r.setProperty('--radius', clamp(num(t.radius, 0), 0, 60) + 'px');
     r.setProperty('--b', clamp(Math.round(num(t.pixelBorder, 3)), 1, 6) + 'px');
+    r.setProperty('--scale-d', String(clamp(num(t.scale, 100), 40, 200) / 100));
+    r.setProperty('--scale-m', String(clamp(num(t.scaleMobile, 100), 40, 200) / 100));
     r.setProperty('--content-w', clamp(num(t.contentWidth, 1180), 700, 2000) + 'px');
     r.setProperty('--header-logo', clamp(num(cfg.brand.headerLogoSize, 72), 24, 140) + 'px');
     r.setProperty('--font-h', fontStack(t.headingFont, 'Georgia, serif'));
@@ -289,7 +317,8 @@
   function socialsHtml(cls) {
     return (cfg.socials || []).filter(function (s) { return s && normLink(s.url); }).map(function (s) {
       var name = String(s.platform || 'link').toLowerCase();
-      return '<a class="' + (cls || 'icon-btn') + '" ' + linkAttrs(s.url, true) + ' aria-label="' + esc(s.label || name) + '" title="' + esc(s.label || name) + '">' + icon(name) + '</a>';
+      var img = asset(s.image);
+      return '<a class="' + (cls || 'icon-btn') + (img ? ' has-img' : '') + '" ' + linkAttrs(s.url, true) + ' aria-label="' + esc(s.label || name) + '" title="' + esc(s.label || name) + '">' + (img ? '<img class="ico-img" src="' + esc(img) + '" alt="">' : icon(name)) + '</a>';
     }).join('');
   }
   function navPages() { return cfg.pages.filter(function (p) { return p.inNav !== false; }); }
@@ -325,16 +354,17 @@
     el.className = (h.sticky !== false ? 'is-sticky ' : '') + 'style-' + (h.style || 'glass') + ' layout-' + (h.layout || 'pill');
     var logo = asset(cfg.brand.logo);
     var socials = h.showSocials !== false ? socialsHtml('icon-btn') : '';
-    var cta = h.ctaText ? '<a class="btn btn-sm hd-cta" ' + linkAttrs(h.ctaLink) + '>' + sparkleText(h.ctaText) + '</a>' : '';
+    var cta = asset(h.ctaImage) ? '<a class="btn-img hd-cta-img" ' + linkAttrs(h.ctaLink) + ' aria-label="' + esc(h.ctaText || 'Shop') + '"><img src="' + esc(asset(h.ctaImage)) + '" alt="' + esc(h.ctaText || '') + '" style="height:' + clamp(num(h.ctaImageHeight, 40), 16, 120) + 'px"></a>'
+      : (h.ctaText ? '<a class="btn btn-sm hd-cta" ' + linkAttrs(h.ctaLink) + '>' + sparkleText(h.ctaText) + '</a>' : '');
     el.innerHTML = '<div class="hd">' +
       '<div class="hd-pill hd-main">' +
         '<a class="brand" href="#/" aria-label="' + esc(cfg.brand.name) + ' home">' +
           (logo ? '<img src="' + esc(logo) + '" alt="' + esc(cfg.brand.name) + '">' : '<span class="brand-text">' + esc(cfg.brand.name) + '</span>') + '</a>' +
         '<nav class="nav" id="main-nav" aria-label="Main">' +
-          navPages().map(function (p) { return '<a href="' + pageHref(p) + '" data-page="' + esc(p.id) + '">' + (p.icon && p.icon !== 'none' ? icon(p.icon) : '') + '<span>' + esc(p.title) + '</span></a>'; }).join('') +
+          navPages().map(function (p) { return '<a href="' + pageHref(p) + '" data-page="' + esc(p.id) + '">' + (asset(p.iconImage) ? '<img class="ico-img" src="' + esc(asset(p.iconImage)) + '" alt="">' : (p.icon && p.icon !== 'none' ? icon(p.icon) : '')) + '<span>' + esc(p.title) + '</span></a>'; }).join('') +
           '<div class="nav-mobile-extra">' + socials + (cta ? cta.replace('hd-cta', '') : '') + '</div>' +
         '</nav>' +
-        '<button class="burger" aria-label="Menu" aria-expanded="false" aria-controls="main-nav"><span></span><span></span><span></span></button>' +
+        '<button class="burger" aria-label="Menu" aria-expanded="false" aria-controls="main-nav">' + (cfg.icons && asset(cfg.icons.menu) ? icon('menu') : '<span></span><span></span><span></span>') + '</button>' +
       '</div>' +
       ((socials || cta) ? '<div class="hd-pill hd-right"><div class="socials" style="display:flex;gap:6px">' + socials + '</div>' + cta + '</div>' : '') +
     '</div>';
@@ -390,20 +420,25 @@
       (s.subtitle ? '<p class="sec-sub">' + rich(s.subtitle) + '</p>' : '') + '</div>' +
       (top ? '<a class="sec-link" ' + linkAttrs(top.link) + '>' + esc(top.text) + '</a>' : '') + '</div>';
   }
+  // one button: normal pixel button, or your own picture if you uploaded one
+  function btnHtml(b, extra) {
+    var img = asset(b.image);
+    if (img) {
+      var hgt = clamp(num(b.imageHeight, 56), 16, 300);
+      return '<a class="btn-img' + (extra ? ' ' + extra : '') + '" ' + linkAttrs(b.link, b.newTab) + ' aria-label="' + esc(b.text || 'button') + '"><img src="' + esc(img) + '" alt="' + esc(b.text || '') + '" style="height:' + hgt + 'px"></a>';
+    }
+    var cls = 'btn' + (b.style && b.style !== 'primary' ? ' btn-' + esc(b.style) : '') + (b.size === 'sm' ? ' btn-sm' : b.size === 'lg' ? ' btn-lg' : '') + (extra ? ' ' + extra : '');
+    return '<a class="' + cls + '" ' + linkAttrs(b.link, b.newTab) + '>' + sparkleText(b.text) + '</a>';
+  }
   function buttonsHtml(list) {
-    list = (list || []).filter(function (b) { return b && b.text; });
+    list = (list || []).filter(function (b) { return b && (b.text || b.image); });
     if (!list.length) return '';
-    return '<div class="btn-row reveal">' + list.map(function (b) {
-      var cls = 'btn' + (b.style && b.style !== 'primary' ? ' btn-' + esc(b.style) : '');
-      return '<a class="' + cls + '" ' + linkAttrs(b.link, b.newTab) + '>' + sparkleText(b.text) + '</a>';
-    }).join('') + '</div>';
+    return '<div class="btn-row reveal">' + list.map(function (b) { return btnHtml(b); }).join('') + '</div>';
   }
   function moreHtml(s) {
     if (s.moreStyle === 'top') return '';
     var l = moreLinks(s); if (!l.length) return '';
-    return '<div class="more-row reveal">' + l.map(function (b) {
-      return '<a class="btn' + (b.style === 'ghost' ? ' btn-ghost' : '') + '" ' + linkAttrs(b.link) + '>' + sparkleText(b.text) + '</a>';
-    }).join('') + '</div>';
+    return '<div class="more-row reveal">' + l.map(function (b) { return btnHtml(b); }).join('') + '</div>';
   }
   function colsStyle(n, def) { n = clamp(Math.round(num(n, def || 3)), 1, 6); return '--cols:' + n + ';--cols-md:' + Math.min(n, 2); }
   function hashQuery() { var m = /[?&]q=([^&]*)/.exec(location.hash); try { return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : ''; } catch (e) { return ''; } }
@@ -451,7 +486,9 @@
       '<input type="search" placeholder="' + esc(s.searchPlaceholder || 'Search…') + '" aria-label="Search"><button class="btn btn-sm" type="submit">Search</button></form>' +
       (chips.length ? '<div class="chips reveal"><span>Try:</span>' + chips.map(function (c) { return '<button type="button" data-chip="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') + '</div>' : '') : '';
     var small = s.smallText ? (normLink(s.smallLink) ? '<a class="hero-small reveal" ' + linkAttrs(s.smallLink) + '>' + esc(s.smallText) + '</a>' : '<span class="hero-small reveal">' + esc(s.smallText) + '</span>') : '';
-    return '<div class="hero layout-' + esc(layout) + (s.fullHeight ? ' fullh' : '') + (hasArt ? '' : ' no-art') + '">' +
+    var artK = clamp(num(s.artSize, 50), 20, 80);
+    var heroCols = layout === 'split-reverse' ? artK + '% minmax(0, 1fr)' : 'minmax(0, 1fr) ' + artK + '%';
+    return '<div class="hero layout-' + esc(layout) + (s.fullHeight ? ' fullh' : '') + (hasArt ? '' : ' no-art') + '"' + (hasArt && layout !== 'centered' ? ' style="--hero-cols:' + heroCols + '"' : '') + '>' +
       '<div class="hero-copy">' +
         (s.status ? '<div class="status reveal"><i></i>' + esc(s.status) + '</div>' : '') +
         (s.title ? '<h1 class="hero-title reveal">' + headline(s.title) + '</h1>' : '') +
@@ -480,7 +517,11 @@
         (tags.length ? '<div class="tags">' + tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
         (k.description ? '<p class="card-desc">' + rich(k.description).replace(/<a [^>]*>|<\/a>/g, '') + '</p>' : '') +
         '<div class="card-foot"><div class="price-row">' + (k.price ? '<span class="price">' + esc(k.price) + '</span>' : '') + (k.oldPrice ? '<span class="old-price">' + esc(k.oldPrice) + '</span>' : '') + '</div>' +
-          '<span class="btn go-btn' + (live ? '' : ' is-disabled') + '">' + sparkleText(btnText) + ' ' + (live ? '→' : '') + '</span></div>' +
+          (function () {
+            var gi = asset(k.buttonImage) || asset(cfg.theme.goButtonImage);
+            if (gi && !sold) return '<span class="go-img' + (live ? '' : ' is-disabled') + '"><img src="' + esc(gi) + '" alt="' + esc(btnText) + '" style="height:' + clamp(num(cfg.theme.goButtonImageHeight, 36), 16, 120) + 'px"></span>';
+            return '<span class="btn go-btn' + (live ? '' : ' is-disabled') + '">' + sparkleText(btnText) + ' ' + (live ? '→' : '') + '</span>';
+          })() + '</div>' +
       '</div>';
     var search = esc((k.title + ' ' + (k.description || '') + ' ' + (k.badge || '') + ' ' + (k.tags || '')).toLowerCase());
     return live
@@ -593,13 +634,54 @@
     return secHead(s) + '<div class="img-block reveal"><figure style="max-width:' + mw + 'px">' + inner + (s.caption ? '<figcaption>' + rich(s.caption) + '</figcaption>' : '') + '</figure></div>';
   };
   R.links = function (s) {
-    var list = (s.links || []).filter(function (b) { return b && b.text; });
-    return secHead(s) + '<div class="links-list">' + list.map(function (b) {
-      var cls = 'btn reveal' + (b.style && b.style !== 'primary' ? ' btn-' + esc(b.style) : '');
-      return '<a class="' + cls + '" ' + linkAttrs(b.link, b.newTab) + '>' + sparkleText(b.text) + '</a>';
-    }).join('') + '</div>';
+    var list = (s.links || []).filter(function (b) { return b && (b.text || b.image); });
+    return secHead(s) + '<div class="links-list">' + list.map(function (b) { return btnHtml(b, 'reveal'); }).join('') + '</div>';
   };
   R.spacer = function (s) { return '<div style="height:' + clamp(num(s.height, 60), 0, 600) + 'px"></div>'; };
+
+  /* ---- embeds (YouTube, Spotify, SoundCloud, Bandcamp, any <iframe> code) ---- */
+  // sites that refuse to be shown inside other websites get a "player card" instead
+  var NO_FRAME_HOSTS = /(^|\.)(untitled\.stream|instagram\.com|tiktok\.com|payhip\.com|gumroad\.com|beatstars\.com|x\.com|twitter\.com)$/i;
+  function hostOf(u) { var m = /^https:\/\/([^\/?#:]+)/i.exec(String(u || '')); return m ? m[1].toLowerCase() : ''; }
+  function parseEmbed(code) {
+    code = String(code || '').trim();
+    if (!code) return null;
+    var src = '', h = 0, m = /<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i.exec(code);
+    if (m) { src = m[1].replace(/&amp;/g, '&'); var hm = /\sheight\s*=\s*["']?(\d+)/i.exec(code); if (hm) h = Number(hm[1]); }
+    else src = normLink(code.split(/\s/)[0]);
+    if (/^\/\//.test(src)) src = 'https:' + src;
+    if (!/^https:\/\//i.test(src)) return null;
+    var host = hostOf(src), sp;
+    if (youtubeId(src)) return { src: embedUrl(src, false), ratio: '16 / 9', host: host, url: src };
+    if (vimeoId(src)) return { src: embedUrl(src, false), ratio: '16 / 9', host: host, url: src };
+    if ((sp = /open\.spotify\.com\/(?:embed\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/.exec(src))) return { src: 'https://open.spotify.com/embed/' + sp[1] + '/' + sp[2], height: sp[1] === 'track' ? 152 : 380, host: host, url: src };
+    if (/^https:\/\/(www\.|m\.)?soundcloud\.com\//i.test(src)) return { src: 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(src) + '&color=%23ff3fc8&visual=true', height: 300, host: host, url: src };
+    if (NO_FRAME_HOSTS.test(host) && !m) return { card: true, host: host, url: src };
+    return { src: src, height: h || 0, host: host, url: src };
+  }
+  function embedHtml(o) {
+    // o: { code, height, mode, cardImage, cardTitle, cardText, cardButton }
+    var e = parseEmbed(o.code);
+    if (!e) return '<p class="empty">Paste an embed code or a link in the admin ✦</p>';
+    if (o.mode === 'card' || e.card) {
+      var img = asset(o.cardImage);
+      return '<a class="embed-card" ' + linkAttrs(e.url, true) + '>' +
+        '<span class="ec-art">' + (img ? '<img src="' + esc(img) + '" alt="">' : icon('note')) + '</span>' +
+        '<span class="ec-body"><small>' + esc(e.host.replace(/^www\./, '')) + '</small><strong>' + esc(o.cardTitle || 'Open player') + '</strong>' +
+        (o.cardText ? '<span class="ec-text">' + esc(o.cardText) + '</span>' : '') +
+        '<span class="btn btn-sm">' + sparkleText(o.cardButton || '▶ LISTEN') + '</span></span></a>';
+    }
+    var hgt = num(o.height, 0) || e.height || 0;
+    var style = hgt ? 'height:' + clamp(hgt, 80, 1600) + 'px' : 'aspect-ratio:' + (e.ratio || '16 / 9');
+    return '<div class="embed-frame" style="' + style + '"><iframe src="' + esc(e.src) + '" title="' + esc(o.cardTitle || 'Embedded player') + '" loading="lazy" allow="autoplay; encrypted-media; clipboard-write; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>';
+  }
+  R.embed = function (s) {
+    var mw = clamp(num(s.maxWidth, 900), 200, 3000);
+    return secHead(s) + '<div class="embed-wrap reveal" style="max-width:' + mw + 'px">' + embedHtml(s) + '</div>';
+  };
+  R.game = function (s) {
+    return secHead(s) + '<div class="pc-mount reveal" data-game="' + esc(s.id) + '"></div>';
+  };
 
   function renderSection(s) {
     var fn = R[s.type];
@@ -607,9 +689,11 @@
     var cls = 'section t-' + esc(s.type) + ' w-' + esc(s.width || 'normal') + ' a-' + esc(s.align || 'left') + ' sp-' + esc(s.spacing || 'normal');
     var inner;
     try { inner = fn(s); } catch (e) { console.error('Section failed', s, e); inner = ''; }
-    if (s.type === 'marquee') return '<section class="' + cls + ' w-full" data-sid="' + esc(s.id) + '" style="overflow:hidden">' + inner + '</section>';
+    var k = clamp(num(s.scale, 100), 40, 200) / 100;
+    var zoom = k !== 1 ? 'zoom:' + k + ';' : '';
+    if (s.type === 'marquee') return '<section class="' + cls + ' w-full" data-sid="' + esc(s.id) + '" style="overflow:hidden;' + zoom + '">' + inner + '</section>';
     var panel = s.panel && s.type !== 'cta' ? '<div class="panel">' + inner + '</div>' : inner;
-    return '<section class="' + cls + '" data-sid="' + esc(s.id) + '"><div class="wrap">' + panel + '</div></section>';
+    return '<section class="' + cls + '" data-sid="' + esc(s.id) + '"' + (zoom ? ' style="' + zoom + '"' : '') + '><div class="wrap">' + panel + '</div></section>';
   }
 
   /* ---------- reveal / interactions ---------- */
@@ -799,11 +883,14 @@
     var page = currentPage(), app = document.getElementById('app');
     var pt = cfg.animations.enabled === false ? 'none' : (cfg.animations.pageTransition || 'fade');
     var doRender = function () {
+      if (window.SulGame) window.SulGame.unmountAll();
       galleryStateResetFor(page);
       app.innerHTML = '<div class="page" data-page="' + esc(page.id) + '">' + (page.sections || []).map(renderSection).join('') + '</div>';
       markActiveNav(page.id);
       bindApp(app);
+      if (window.SulGame) app.querySelectorAll('[data-game]').forEach(function (m) { window.SulGame.mount(m, cfg, api); });
       setupReveal(app, !!opts.instant);
+      if (window.SulPopups && !introShowing) window.SulPopups.pageChanged(page.id);
       if (!opts.keepScroll) window.scrollTo(0, 0);
       if (opts.animate && pt !== 'none' && !document.body.classList.contains('reduced-motion')) {
         app.className = 'pt-' + pt + '-in';
@@ -844,7 +931,8 @@
       (logo ? '<button class="intro-logo-btn" type="button" aria-label="Enter site" data-enter><img class="intro-logo logo-glow" src="' + esc(logo) + '" alt="' + esc(cfg.brand.name) + '"></button>' : '') +
       (it.title ? '<h1 class="intro-title">' + esc(it.title) + '</h1>' : '') +
       (it.subtitle ? '<p class="intro-sub">' + esc(it.subtitle) + '</p>' : '') +
-      '<button class="btn intro-enter" type="button" data-enter>' + sparkleText(it.buttonText || 'ENTER') + '</button>';
+      (asset(it.buttonImage) ? '<button class="btn-img intro-enter intro-enter-img" type="button" data-enter aria-label="' + esc(it.buttonText || 'Enter') + '"><img src="' + esc(asset(it.buttonImage)) + '" alt="" style="height:' + clamp(num(it.buttonImageHeight, 60), 16, 300) + 'px"></button>'
+        : '<button class="btn intro-enter" type="button" data-enter>' + sparkleText(it.buttonText || 'ENTER') + '</button>');
     el.hidden = false;
     document.body.classList.add('intro-active', 'lock-scroll');
     el.querySelectorAll('[data-enter]').forEach(function (b) { b.addEventListener('click', enterSite); });
@@ -859,12 +947,19 @@
     introShowing = false;
     document.body.classList.remove('intro-active');
     if (lb.hidden) document.body.classList.remove('lock-scroll');
+    afterIntro();
+  }
+  // things that wait until the visitor is "in": popups + background music
+  function afterIntro() {
+    if (window.SulPopups && cfg) window.SulPopups.start(currentPage().id);
   }
   function enterSite(e) {
     if (!introShowing) return;
     clearTimeout(introTimer);
     var it = cfg.intro, el = document.getElementById('intro');
     setIntroSeen();
+    // the PRESS START click counts as a "user gesture", so the browser lets music start
+    if (window.SulMusic && e) window.SulMusic.userStart();
     if (it.showSparkleBurst !== false && window.SulFX) {
       var r = e && e.currentTarget && e.currentTarget.getBoundingClientRect ? e.currentTarget.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 };
       window.SulFX.burst(r.left + r.width / 2, r.top + r.height / 2, 60);
@@ -959,7 +1054,7 @@
   /* ---------- boot ---------- */
   function normalize(raw) {
     var c = merge(DEFAULTS, raw || {});
-    ['socials', 'pages', 'kits', 'galleryCategories', 'gallery', 'reviews'].forEach(function (k) { if (!Array.isArray(c[k])) c[k] = DEFAULTS[k]; });
+    ['socials', 'pages', 'kits', 'galleryCategories', 'gallery', 'reviews', 'popups'].forEach(function (k) { if (!Array.isArray(c[k])) c[k] = DEFAULTS[k]; });
     if (!c.pages.length) c.pages = DEFAULTS.pages;
     c.pages.forEach(function (p, i) {
       if (!p.id) p.id = 'page-' + (i + 1);
@@ -976,8 +1071,19 @@
     renderHeader();
     renderFooter();
     renderPage({ instant: opts.instant, keepScroll: opts.keepScroll });
+    if (window.SulMusic) window.SulMusic.configure(cfg, api, IS_PREVIEW);
+    if (window.SulPopups) window.SulPopups.configure(cfg, api, IS_PREVIEW);
     document.body.classList.remove('is-loading');
   }
+  // small toolkit shared with music.js, popups and game.js
+  var api = {
+    esc: function (x) { return esc(x); }, rich: function (x) { return rich(x); }, asset: function (x) { return asset(x); },
+    icon: function (x) { return icon(x); }, normLink: function (x) { return normLink(x); }, linkAttrs: function (a, b) { return linkAttrs(a, b); },
+    sparkleText: function (x) { return sparkleText(x); }, buttonsHtml: function (x) { return buttonsHtml(x); }, embedHtml: function (x) { return embedHtml(x); },
+    headline: function (x) { return headline(x); }, burst: function (x, y, n) { if (window.SulFX) window.SulFX.burst(x, y, n); },
+    motion: function () { return !!(cfg && cfg.animations.enabled !== false && !document.body.classList.contains('reduced-motion')); },
+    isPreview: IS_PREVIEW
+  };
   function fail(msg) {
     document.body.classList.remove('is-loading');
     document.getElementById('app').innerHTML = '<div class="section"><div class="wrap panel a-center"><h2 class="sec-title">Oops</h2><p>' + esc(msg) + '</p></div></div>';
@@ -994,6 +1100,8 @@
         if (d.replay) { window.scrollTo(0, 0); setupReveal(document.getElementById('app'), false); }
       } else if (d.type === 'sul:intro') {
         if (cfg) showIntro(true);
+      } else if (d.type === 'sul:popup') {
+        if (cfg && window.SulPopups) window.SulPopups.show(d.id, true);
       } else if (d.type === 'sul:goto') {
         if (cfg) location.hash = d.page === cfg.pages[0].id ? '#/' : '#/' + encodeURIComponent(d.page);
       } else if (d.type === 'sul:scrollto') {
@@ -1010,6 +1118,11 @@
     introShowing = !!(n.intro.enabled && !(n.intro.oncePerSession && introSeen()));
     renderAll(raw, {});
     showIntro(false);
+    if (!introShowing) {
+      afterIntro();
+      // no intro screen: start music on the visitor's first tap/click/key
+      if (window.SulMusic) window.SulMusic.armFirstGesture();
+    }
   }
   if (IS_DRAFT) {
     var draft = null;

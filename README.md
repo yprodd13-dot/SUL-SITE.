@@ -66,6 +66,23 @@ In **Publish & Settings → Admin access & password** you can:
 - **Ctrl+Z** undoes changes. Nothing goes live until you press **🚀 Publish**.
 - **No token on a device?** Use **Download update as .zip**, then upload the folders inside it to the repo on github.com.
 
+## Updating the code later (keeps all your settings)
+
+Your design lives in **`content/site.json`** and your files in **`uploads/`**. Everything else is code.
+
+1. In the admin go to **🚀 Publish & Settings → Download backup (.json)** first, just in case.
+2. Unzip the update. It only contains code (`index.html`, `assets/`, the `studio-…` admin folder, `README.md`) — **no `content/` or `uploads/`**, so your stuff can't be overwritten.
+3. On github.com open your repo → **Add file → Upload files** → drag everything from the update in → **Commit changes**.
+4. Wait a minute, then open your admin panel. If the update adds new features it sets them up automatically and asks you to press **🚀 Publish** once.
+
+## What's new in v2
+- **Size**: make the whole site bigger/smaller (separately for computers and phones) in **🎨 Size, Colors & Fonts**, or one part at a time with **Size of this section**.
+- **🎵 Music Player**: background music with play / pause / skip / volume. Starts when people press PRESS START.
+- **🔔 Popups & Updates**: windows that pop up when people open the site (once, once per visit, or every time).
+- **🧩 Icons & Button Images**: swap any icon or button for your own picture.
+- **Embed** section: paste embed code or a link (YouTube, Spotify, SoundCloud, Bandcamp…). Sites that block embedding (like [untitled]) show as a player card.
+- **🎮 PIXEL CONNECT**: a pixel jigsaw game on its own page. Up to 20 pictures, 5–20 pieces, new picture every game.
+
 ## Testing on your computer
 If you double-click `index.html`, the site won't load its content, because browsers block that. Run a small local server in this folder instead:
 ```

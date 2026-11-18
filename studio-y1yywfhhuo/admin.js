@@ -176,10 +176,15 @@
       img.src = url;
     });
   }
-  var EXT = { 'image/webp': '.webp', 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/svg+xml': '.svg', 'image/avif': '.avif', 'video/mp4': '.mp4', 'video/webm': '.webm', 'video/quicktime': '.mov' };
-  function uploadFile(file, allowVideo) {
+  var EXT = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/wave': '.wav', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/flac': '.flac', 'image/webp': '.webp', 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/svg+xml': '.svg', 'image/avif': '.avif', 'video/mp4': '.mp4', 'video/webm': '.webm', 'video/quicktime': '.mov' };
+  function uploadFile(file, allowVideo, kind) {
     var isImage = /^image\//.test(file.type), isVideo = /^video\//.test(file.type);
-    if (!isImage && !(allowVideo && isVideo)) { toast(allowVideo ? 'Pick an image or a video file' : 'Pick an image file (png, jpg, webp, gif)', 'bad'); return Promise.resolve(null); }
+    var isAudio = /^audio\//.test(file.type) || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(file.name || '');
+    if (kind === 'audio') {
+      if (!isAudio) { toast('Pick an audio file (mp3, wav, ogg, m4a)', 'bad'); return Promise.resolve(null); }
+      if (file.size > 20 * 1024 * 1024) { toast('That song is over 20 MB — export it as an mp3 (192 kbps) to make it smaller', 'bad', 5000); return Promise.resolve(null); }
+      isImage = false;
+    } else if (!isImage && !(allowVideo && isVideo)) { toast(allowVideo ? 'Pick an image or a video file' : 'Pick an image file (png, jpg, webp, gif)', 'bad'); return Promise.resolve(null); }
     if (isVideo && file.size > 45 * 1024 * 1024) { toast('That video is over 45 MB — upload it to YouTube and paste the link instead', 'bad', 5000); return Promise.resolve(null); }
     if (isImage && file.size > 25 * 1024 * 1024) { toast('That image is over 25 MB — please export a smaller one', 'bad', 4000); return Promise.resolve(null); }
     var name = slug(String(file.name || 'file').replace(/\.[^.]+$/, '')) || 'file';
@@ -205,8 +210,12 @@
   /* ================= state / history / sync ================= */
   function normalize(c) {
     c = c && typeof c === 'object' ? c : {};
-    ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
-    ['socials', 'pages', 'kits', 'galleryCategories', 'gallery', 'reviews'].forEach(function (k) { if (!Array.isArray(c[k])) c[k] = []; });
+    ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement', 'music', 'icons', 'game'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
+    ['socials', 'pages', 'kits', 'galleryCategories', 'gallery', 'reviews', 'popups'].forEach(function (k) { if (!Array.isArray(c[k])) c[k] = []; });
+    if (!Array.isArray(c.music.tracks)) c.music.tracks = [];
+    if (!Array.isArray(c.game.images)) c.game.images = [];
+    c.game.images = c.game.images.map(function (x) { return typeof x === 'string' ? { id: uid('gi'), src: x } : x; }).filter(function (x) { return x && typeof x === 'object'; });
+    c.popups.forEach(function (p) { if (!p.id) p.id = uid('pop'); });
     if (!c.pages.length) c.pages.push({ id: 'home', title: 'HOME', inNav: true, sections: [] });
     c.pages.forEach(function (p, i) { if (!p.id) p.id = 'page-' + (i + 1); if (!Array.isArray(p.sections)) p.sections = []; p.sections.forEach(function (s) { if (!s.id) s.id = uid('s'); }); });
     c.kits.forEach(function (k) { if (!k.id) k.id = uid('k'); });
@@ -435,6 +444,10 @@
     });
     (c.socials || []).forEach(function (s) { checkLink(s.url, 'Social link'); });
     checkLink(c.header.ctaLink, 'Header button');
+    if ((c.game.images || []).length > 20) out.push('PIXEL CONNECT has more than 20 pictures — only the first 20 are used.');
+    if (Number(c.game.minPieces) > Number(c.game.maxPieces)) out.push('PIXEL CONNECT: “Fewest pieces” is bigger than “Most pieces”.');
+    if (c.music.enabled && !(c.music.tracks || []).some(function (t) { return t.src; })) out.push('Music is turned on but has no songs yet.');
+    (c.popups || []).forEach(function (p, i) { if (p.enabled !== false && !(p.title || p.text || p.image || p.embed)) out.push('Popup #' + (i + 1) + ' is empty.'); (p.buttons || []).forEach(function (b) { checkLink(b.link, 'Popup “' + (p.title || '#' + (i + 1)) + '”'); }); });
     return out;
   }
 
@@ -528,13 +541,14 @@
   }
   function fImage(obj, key, label, o) {
     o = o || {};
-    var media = !!o.media;
+    var media = !!o.media, audio = !!o.audio;
     var thumb = el('div', { class: 'thumb' });
-    var url = el('input', { type: 'text', placeholder: media ? 'Upload, or paste an image / video / YouTube link' : 'Upload, or paste an image link', spellcheck: 'false' });
+    var url = el('input', { type: 'text', placeholder: audio ? 'Upload an mp3, or paste a direct link to an audio file' : media ? 'Upload, or paste an image / video / YouTube link' : 'Upload, or paste an image link', spellcheck: 'false' });
     url.value = obj[key] || '';
     function paint() {
       thumb.innerHTML = '';
-      var t = thumbFor(obj[key], null);
+      var t = audio ? { kind: 'none' } : thumbFor(obj[key], null);
+      if (audio) { thumb.textContent = obj[key] ? '♪ ' + String(obj[key]).split('/').pop().slice(0, 14) : 'none'; return; }
       if (t.kind === 'img') thumb.appendChild(el('img', { src: t.url, alt: '' }));
       else if (t.kind === 'video') thumb.appendChild(el('video', { src: t.url + '#t=0.1', muted: true, playsinline: true, preload: 'metadata' }));
       else thumb.textContent = obj[key] ? (ytId(obj[key]) ? 'YouTube' : 'link') : 'none';
@@ -543,21 +557,21 @@
     function doFiles(files) {
       if (!files.length) return;
       thumb.textContent = '…';
-      uploadFile(files[0], media).then(function (p) {
+      uploadFile(files[0], media, audio ? 'audio' : '').then(function (p) {
         if (p) { url.value = p; set(obj, key, p, o); toast('Added ✦ (goes live when you Publish)', 'ok'); }
         paint();
       });
     }
-    var up = el('button', { class: 'ab small', type: 'button', text: '⬆ Upload', onclick: function () { pickFiles(media ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*').then(doFiles); } });
+    var up = el('button', { class: 'ab small', type: 'button', text: '⬆ Upload', onclick: function () { pickFiles(audio ? 'audio/*,.mp3,.wav,.ogg,.m4a' : media ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*').then(doFiles); } });
     var clr = el('button', { class: 'ab small', type: 'button', text: 'Remove', onclick: function () { url.value = ''; set(obj, key, '', o); paint(); } });
     var wrap = el('div', { class: 'img-in' }, thumb, el('div', { class: 'col' }, el('div', { class: 'inline' }, up, clr), url));
     wrap.addEventListener('dragover', function (e) { e.preventDefault(); wrap.classList.add('drop-hot'); });
     wrap.addEventListener('dragleave', function () { wrap.classList.remove('drop-hot'); });
     wrap.addEventListener('drop', function (e) { e.preventDefault(); wrap.classList.remove('drop-hot'); doFiles(Array.prototype.slice.call(e.dataTransfer.files || [])); });
     paint();
-    return field(label, o.help || (media ? 'Drop a file here, upload, or paste a YouTube link.' : 'Drop an image here or click Upload.'), wrap);
+    return field(label, o.help || (audio ? 'mp3 works best. Drop a file here or click Upload.' : media ? 'Drop a file here, upload, or paste a YouTube link.' : 'Drop an image here or click Upload.'), wrap);
   }
-  function group(title, sub) { var c = el('div', { class: 'card' }, el('h3', null, title, sub ? el('small', { text: sub }) : null)); for (var i = 2; i < arguments.length; i++) add(c, arguments[i]); return c; }
+  function group(title, sub) { var c = el('div', { class: 'card' }, el('h3', null, title, sub ? (typeof sub === 'string' ? el('small', { text: sub }) : sub) : null)); for (var i = 2; i < arguments.length; i++) add(c, arguments[i]); return c; }
   function row() { var r = el('div', { class: 'row' }); for (var i = 0; i < arguments.length; i++) add(r, arguments[i]); return r; }
 
   /* ---- generic sortable list ---- */
@@ -659,13 +673,16 @@
     arr.forEach(function (b) { if (!b.id) b.id = uid('b'); });
     var list = listEditor(arr, {
       key: 'btn-' + (owner.id || key), noDup: false,
-      title: function (b) { return b.text || '(no text)'; },
+      title: function (b) { return (b.image ? '🖼 ' : '') + (b.text || '(no text)'); },
       sub: function (b) { return b.link || 'no link yet'; },
       body: function (b, c, head) {
         add(c, [row(fText(b, 'text', 'Button text', { after: head, help: 'Tip: ✦ shows up in your highlight colour.' }),
           fSelect(b, 'style', 'Look', [['primary', 'Main (gradient)'], ['ghost', 'Soft (white)'], ['accent', 'Accent (blue)'], ['holo', 'Holographic']], { def: 'primary' })),
           fLink(b, 'link', 'Goes to', { after: head }),
-          fToggle(b, 'newTab', 'Open in a new tab', { help: 'Turn on for links to other websites.' })]);
+          fToggle(b, 'newTab', 'Open in a new tab', { help: 'Turn on for links to other websites.' }),
+          row(fSelect(b, 'size', 'Size', [['sm', 'Small'], ['md', 'Normal'], ['lg', 'Big']], { def: 'md' }), el('div')),
+          fImage(b, 'image', 'Use your own picture as the button (optional)', { help: 'Upload a PNG (transparent background looks best). The text above is still used for screen readers.' }),
+          fRange(b, 'imageHeight', 'Picture button height', { min: 16, max: 200, def: 56, suffix: 'px' })]);
       },
       empty: 'No buttons.'
     });
@@ -689,6 +706,8 @@
     video: { label: 'Video', icon: '▶', desc: 'YouTube / Vimeo link or a video file.' },
     image: { label: 'Image', icon: '🌄', desc: 'A single picture with optional link.' },
     links: { label: 'Link buttons list', icon: '🔗', desc: 'Stack of big buttons (link-in-bio style).' },
+    embed: { label: 'Embed (players, videos…)', icon: '⧉', desc: 'Paste embed code or a link: YouTube, Spotify, SoundCloud, Bandcamp, untitled…' },
+    game: { label: 'PIXEL CONNECT game', icon: '🎮', desc: 'Your pixel puzzle game (settings in 🎮 PIXEL CONNECT).' },
     spacer: { label: 'Empty space', icon: '↕', desc: 'Adds space between sections.' }
   };
   function newSection(type) {
@@ -707,6 +726,8 @@
       case 'image': Object.assign(s, { title: '', image: '', caption: '', link: '', newTab: true, maxWidth: 900 }); break;
       case 'links': Object.assign(s, { title: 'LINKS', subtitle: '', links: [{ id: uid('b'), text: 'INSTAGRAM', link: 'https://instagram.com/', style: 'primary', newTab: true }] }); break;
       case 'spacer': Object.assign(s, { height: 60 }); break;
+      case 'embed': Object.assign(s, { title: '', subtitle: '', code: '', mode: 'auto', height: 0, maxWidth: 900, cardImage: '', cardTitle: '', cardText: '', cardButton: '▶ LISTEN' }); break;
+      case 'game': Object.assign(s, { title: '', subtitle: '' }); break;
     }
     return s;
   }
@@ -747,6 +768,7 @@
       F.push(group('Right side', null,
         row(fSelect(s, 'layout', 'Layout', [['split-reverse', 'Picture left, text right'], ['split', 'Text left, picture right'], ['centered', 'Centered (no picture)']]),
           fSelect(s, 'rightSide', 'Picture', [['art', 'Logo in a pixel window'], ['mosaic', 'Scrolling wall of your work'], ['logo', 'Just the floating logo'], ['none', 'Nothing']])),
+        fRange(s, 'artSize', 'Picture width', { min: 25, max: 75, def: 50, suffix: '%', help: 'How much of the row the picture takes (on computers).' }),
         fImage(s, 'logo', 'Logo / picture'),
         row(fText(s, 'windowTitle', 'Window title', { ph: 'sul0557.exe' }), fText(s, 'windowFooter', 'Window footer text', { ph: 'LV.99 PRODUCER' })),
         fToggle(s, 'showReviews', 'Show scrolling reviews under the picture'),
@@ -814,11 +836,21 @@
     } else if (s.type === 'links') {
       F.push(group('Header', null, fText(s, 'title', 'Title', { after: h }), fText(s, 'subtitle', 'Subtitle')));
       F.push(buttonsEditor(s, 'links', 'Link buttons'));
+    } else if (s.type === 'embed') {
+      F.push(group('Embed', null, fText(s, 'title', 'Title (optional)', { after: h, help: TITLE_HELP }), fText(s, 'subtitle', 'Subtitle'),
+        fText(s, 'code', 'Embed code or link', { multi: true, rows: 4, nospell: true, after: h, help: 'Paste the <b>&lt;iframe&gt;</b> code a site gives you under Share → Embed, or just the link. YouTube, Vimeo, Spotify and SoundCloud links convert automatically.' }),
+        el('div', { class: 'note', html: '<b>About [untitled]:</b> untitled.stream doesn’t let its pages be shown inside other websites, so a link to it shows as a pixel <b>player card</b> that opens your project. Add a cover picture below to make it look great.' }),
+        row(fSelect(s, 'mode', 'Show as', [['auto', 'Player (if the site allows it)'], ['card', 'Player card (opens in new tab)']], { def: 'auto' }), fNum(s, 'height', 'Height in px (0 = automatic)', { min: 0, max: 1600 })),
+        fRange(s, 'maxWidth', 'Max width', { min: 200, max: 1600, step: 10, def: 900, suffix: 'px' })));
+      F.push(group('Player card', 'used for sites that block embedding', fImage(s, 'cardImage', 'Cover picture'), row(fText(s, 'cardTitle', 'Card title', { ph: 'Sul beats' }), fText(s, 'cardButton', 'Button text', { ph: '▶ LISTEN' })), fText(s, 'cardText', 'Small text')));
+    } else if (s.type === 'game') {
+      F.push(group('PIXEL CONNECT', null, fText(s, 'title', 'Title above the game (optional)', { after: h, help: TITLE_HELP }), fText(s, 'subtitle', 'Subtitle'),
+        el('div', { class: 'note', html: 'Pictures, piece counts and sounds are in <b>🎮 PIXEL CONNECT</b>.' })));
     } else if (s.type === 'spacer') {
       F.push(group('Space', null, fRange(s, 'height', 'Height', { min: 0, max: 400, step: 5, def: 60, suffix: 'px', after: h })));
     }
     if (s.type !== 'spacer') {
-      var lay = [row(
+      var lay = [fRange(s, 'scale', 'Size of this section', { min: 50, max: 160, step: 5, def: 100, suffix: '%', help: 'Make just this part bigger or smaller.' }), row(
         fSelect(s, 'width', 'Width', [['normal', 'Normal'], ['half', 'Half (sits next to another half)'], ['narrow', 'Narrow'], ['full', 'Full screen']], { def: 'normal', after: h }),
         fSelect(s, 'align', 'Align', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']], { def: 'left' }),
         fSelect(s, 'spacing', 'Space around', [['none', 'None'], ['small', 'Small'], ['normal', 'Normal'], ['large', 'Large']], { def: 'normal' }))];
@@ -836,10 +868,14 @@
     ['kits', '🥁', 'Drum Kits'],
     ['gallery', '🖼', 'Cover Arts & Edits'],
     ['reviews', '💬', 'Reviews'],
+    ['game', '🎮', 'PIXEL CONNECT'],
+    ['music', '🎵', 'Music Player'],
+    ['popups', '🔔', 'Popups & Updates'],
     ['intro', '✨', 'Intro Page'],
     ['brand', '💗', 'Logo & Site Info'],
     ['header', '☰', 'Menu, Footer & Socials'],
-    ['theme', '🎨', 'Colors & Fonts'],
+    ['theme', '🎨', 'Size, Colors & Fonts'],
+    ['icons', '🧩', 'Icons & Button Images'],
     ['background', '☁', 'Background'],
     ['animations', '🌀', 'Animations'],
     '-',
@@ -894,6 +930,7 @@
             after: function (v) { renamePage(p, v); h(); refreshPageSel(); }
           })),
           row(fToggle(p, 'inNav', 'Show in the menu', { defOn: true, after: h }), fSelect(p, 'icon', 'Menu icon', [['none', 'None'], ['home', 'House'], ['grid', 'Grid'], ['image', 'Picture'], ['bag', 'Bag'], ['music', 'Music'], ['video', 'Video'], ['star', 'Star'], ['sparkle', 'Sparkle'], ['user', 'Person']], { def: 'none' })),
+          fImage(p, 'iconImage', 'Or your own menu icon picture', { help: 'Small square PNG works best.' }),
           el('button', { class: 'ab small', type: 'button', text: '✎ Edit this page’s sections ↓', onclick: function () { S.pageSel = p.id; refreshPageSel(); renderSectionsArea(); pvGoto(p.id); secBox.scrollIntoView({ behavior: 'smooth' }); } })]);
       },
       onOpen: function (p) { pvGoto(p.id); }
@@ -994,6 +1031,7 @@
           row(fText(k, 'price', 'Price', { ph: '$25 or FREE', after: h }), fText(k, 'oldPrice', 'Old price (crossed out)', { ph: 'optional' })),
           row(fText(k, 'buttonText', 'Button text', { ph: 'GO TO' }), fToggle(k, 'newTab', 'Open link in a new tab', { defOn: true })),
           fLink(k, 'link', 'GO TO link', { after: h, help: 'Where the button sends people — paste any link.' }),
+          fImage(k, 'buttonImage', 'Own picture for this kit’s GO TO button (optional)', { help: 'Leave empty to use the one from 🧩 Icons & Button Images (or the normal button).' }),
           row(fToggle(k, 'featured', '★ Featured (shows on the homepage)', { after: h }), fToggle(k, 'soldOut', 'Sold out', { after: h })),
           fToggle(k, 'visible', 'Show on site', { defOn: true, after: h })
         ]);
@@ -1082,7 +1120,9 @@
       fImage(it, 'logo', 'Logo'),
       fRange(it, 'logoSize', 'Logo size', { min: 150, max: 1000, step: 10, def: 520, suffix: 'px' }),
       row(fText(it, 'title', 'Title (optional)'), fText(it, 'subtitle', 'Small text under the logo')),
-      fText(it, 'buttonText', 'Enter button text', { ph: '✦ ENTER' })));
+      fText(it, 'buttonText', 'Enter button text', { ph: '✦ ENTER' }),
+      fImage(it, 'buttonImage', 'Use your own picture for the enter button (optional)'),
+      fRange(it, 'buttonImageHeight', 'Picture button height', { min: 20, max: 240, def: 60, suffix: 'px' })));
     add(E, group('Intro animations', null,
       row(fSelect(it, 'logoAnimation', 'Logo animation', [['float', 'Float'], ['pulse', 'Pulse'], ['bounce', 'Bounce'], ['spin', '3D spin'], ['glitch', 'Glitch'], ['holo', 'Rainbow shift'], ['none', 'None']]),
         fSelect(it, 'exitAnimation', 'When entering', [['zoom', 'Zoom through'], ['fade', 'Fade'], ['slide', 'Slide up'], ['blur', 'Blur away'], ['none', 'Instant']])),
@@ -1120,14 +1160,17 @@
       row(fSelect(h, 'layout', 'Width', [['bar', 'Full-width bar'], ['pill', 'Compact (fits content)']], { def: 'bar' }),
         fSelect(h, 'style', 'Look', [['solid', 'Solid'], ['glass', 'See-through'], ['transparent', 'No box']], { def: 'solid' })),
       row(fToggle(h, 'sticky', 'Stays at the top when scrolling', { defOn: true }), fToggle(h, 'showSocials', 'Show social icons', { defOn: true })),
-      row(fText(h, 'ctaText', 'Right-side button text (empty = none)'), fLink(h, 'ctaLink', 'Button goes to', { help: ' ' }))));
+      row(fText(h, 'ctaText', 'Right-side button text (empty = none)'), fLink(h, 'ctaLink', 'Button goes to', { help: ' ' })),
+      fImage(h, 'ctaImage', 'Use your own picture for that button (optional)'),
+      fRange(h, 'ctaImageHeight', 'Picture button height', { min: 16, max: 100, def: 40, suffix: 'px' })));
     var socials = listEditor(S.cfg.socials, {
       key: 'soc',
       title: function (s) { return (s.platform || 'link').toUpperCase(); },
       sub: function (s) { return s.url || 'empty — hidden on the site'; },
       body: function (s, c, hd) {
         add(c, [row(fSelect(s, 'platform', 'Icon', SOCIALS, { after: hd }), fText(s, 'label', 'Label (optional)')),
-          fLink(s, 'url', 'Link', { after: hd, help: 'For email just type your address.' })]);
+          fLink(s, 'url', 'Link', { after: hd, help: 'For email just type your address.' }),
+          fImage(s, 'image', 'Your own icon picture (optional)', { after: hd })]);
       }
     });
     S.cfg.socials.forEach(function (s) { if (!s.id) s.id = uid('so'); });
@@ -1170,7 +1213,16 @@
   ];
   VIEWS.theme = function (E) {
     var t = S.cfg.theme;
-    add(E, head('Colors & Fonts'));
+    add(E, head('Size, Colors & Fonts'));
+    var sizeBtns = function (key) {
+      return el('div', { class: 'add-row', style: 'margin:-6px 0 10px' }, [70, 80, 90, 100, 110].map(function (v) {
+        return el('button', { class: 'ab small', type: 'button', text: v + '%', onclick: function () { t[key] = v; changed(); renderTab(); } });
+      }));
+    };
+    add(E, group('Whole site size', 'makes everything bigger or smaller at once',
+      fRange(t, 'scale', 'On computers', { min: 50, max: 150, step: 5, def: 100, suffix: '%' }), sizeBtns('scale'),
+      fRange(t, 'scaleMobile', 'On phones', { min: 50, max: 150, step: 5, def: 100, suffix: '%' }), sizeBtns('scaleMobile'),
+      el('div', { class: 'note', html: 'To resize just one part, open it in <b>Pages & Layout</b> and use <b>Size of this section</b>. Logo size in the menu is in <b>Logo & Site Info</b>.' })));
     add(E, group('Quick themes', 'one click, then fine-tune below', el('div', { class: 'preset-grid' }, PRESETS.map(function (p) {
       return el('button', { class: 'preset', type: 'button', onclick: function () { Object.assign(S.cfg.theme, p.theme); Object.assign(S.cfg.background, p.bg); changed(); renderTab(); toast('Applied ' + p.name); } },
         el('div', { class: 'sw4' }, [p.bg.skyTop, p.theme.primary, p.theme.secondary, p.theme.accent].map(function (c) { return el('span', { style: 'background:' + c }); })), el('b', { text: p.name }));
@@ -1394,6 +1446,121 @@
       el('div', { class: 'add-row' }, change), res);
   }
 
+  /* ---------- 🎵 music player ---------- */
+  VIEWS.music = function (E) {
+    var m = S.cfg.music;
+    add(E, head('Music Player', 'Background music with a little pixel player (play / pause / skip / volume). Browsers only allow sound after a click, so it starts when people press <b>PRESS START</b> — or on their first click if the intro is off.'));
+    add(E, group('Player', null,
+      fToggle(m, 'enabled', 'Turn on background music'),
+      row(fToggle(m, 'autoplay', 'Start playing when people enter', { defOn: true }), fToggle(m, 'shuffle', 'Shuffle songs')),
+      row(fSelect(m, 'position', 'Where on the screen', [['bottom-left', 'Bottom left'], ['bottom-right', 'Bottom right'], ['top-left', 'Top left'], ['top-right', 'Top right']], { def: 'bottom-left' }),
+        fRange(m, 'volume', 'Starting volume', { min: 0, max: 1, step: 0.05, def: 0.5, fmt: function (v) { return Math.round(v * 100) + '%'; } })),
+      row(fText(m, 'label', 'Player label', { ph: 'NOW PLAYING' }), fToggle(m, 'startMinimized', 'Start minimised (small music button)')),
+      el('div', { class: 'note', html: 'Visitors can pause, skip, change the volume or minimise it — the site remembers their volume. Change the player’s button pictures in <b>🧩 Icons & Button Images</b>.' })));
+    add(E, objList(m, 'tracks', { key: 'trk', label: 'Songs', subLabel: 'played in this order', addText: '+ Add song',
+      title: function (t) { return t.title || '(untitled)'; }, sub: function (t) { return t.src ? String(t.src).split('/').pop() : 'no file yet'; },
+      body: function (t, c, h) { add(c, [fText(t, 'title', 'Song name', { after: h }), fImage(t, 'src', 'Audio file', { audio: true, after: h })]); },
+      make: function () { return { title: 'NEW SONG', src: '' }; } }));
+  };
+
+  /* ---------- 🔔 popups ---------- */
+  VIEWS.popups = function (E) {
+    add(E, head('Popups & Updates', 'Little windows that pop up when people open your site — new drops, updates, sales, announcements. They show after the intro.'));
+    var pagesOpts = [['all', 'Every page']].concat(S.cfg.pages.map(function (p) { return [p.id, 'Only on: ' + (p.title || p.id)]; }));
+    var list = objList(S.cfg, 'popups', { key: 'pop', label: 'Your popups', subLabel: 'shown top to bottom, one at a time', addText: '+ Add popup',
+      title: function (p) { return (p.enabled === false ? '[off] ' : '') + (p.title || '(no title)').replace(/[{}]/g, ''); },
+      sub: function (p) { return (p.tag || 'NOTICE') + ' · ' + ({ once: 'shows once', session: 'once per visit', always: 'every time' }[p.frequency || 'once']); },
+      thumb: function (p) { return p.image ? { kind: 'img', url: assetUrl(p.image) } : null; },
+      body: function (p, c, h) {
+        add(c, [
+          el('div', { class: 'add-row', style: 'margin-top:8px' }, el('button', { class: 'ab primary small', type: 'button', text: '▶ Show this popup in the preview', onclick: function () { if (window.innerWidth <= 1180) document.body.classList.add('show-preview'); pvPost({ type: 'sul:popup', id: p.id }); } })),
+          fToggle(p, 'enabled', 'Turned on', { defOn: true, after: h }),
+          row(fText(p, 'tag', 'Label on the top bar', { ph: 'UPDATE, NEW DROP, SALE…', after: h }), fSelect(p, 'position', 'Style', [['center', 'Big window in the middle'], ['corner', 'Small box in the corner']], { def: 'center' })),
+          fText(p, 'title', 'Title', { after: h, help: TITLE_HELP }),
+          fText(p, 'text', 'Message', { multi: true, rows: 4, help: '**bold**, *italic*, [link](https://…) and new lines work. Great for update notes: one line per change.' }),
+          fImage(p, 'image', 'Picture (optional)'),
+          fText(p, 'embed', 'Embed (optional)', { multi: true, rows: 2, nospell: true, help: 'Paste a YouTube / Spotify / SoundCloud link or any embed code.' }),
+          buttonsEditor(p, 'buttons', 'Buttons (optional)'),
+          row(fSelect(p, 'frequency', 'How often', [['once', 'Only once (shows again if you edit it)'], ['session', 'Once per visit'], ['always', 'Every time the site opens']], { def: 'once', after: h }),
+            fNum(p, 'delay', 'Wait before showing (seconds)', { min: 0, max: 60, def: 1 })),
+          fSelect(p, 'page', 'Show on', pagesOpts, { def: 'all' }),
+          row(dateField(p, 'start', 'Start showing (optional)'), dateField(p, 'end', 'Stop showing (optional)'))
+        ]);
+      },
+      make: function () { return { enabled: true, tag: 'UPDATE', title: 'NEW {UPDATE}', text: 'Write what’s new here.', image: '', embed: '', buttons: [], frequency: 'once', delay: 1, position: 'center', page: 'all', start: '', end: '' }; } });
+    add(E, list);
+  };
+  function dateField(obj, key, label) {
+    var inp = el('input', { type: 'datetime-local' }); inp.value = obj[key] || '';
+    inp.addEventListener('input', function () { obj[key] = inp.value; changed(); });
+    return field(label, null, el('div', { class: 'inline' }, inp, el('button', { class: 'ab small', type: 'button', text: 'Clear', onclick: function () { inp.value = ''; obj[key] = ''; changed(); } })));
+  }
+
+  /* ---------- 🎮 PIXEL CONNECT ---------- */
+  VIEWS.game = function (E) {
+    var g = S.cfg.game;
+    if (!Array.isArray(g.images)) g.images = [];
+    var gamePage = S.cfg.pages.filter(function (p) { return p.sections.some(function (s) { return s.type === 'game'; }); })[0];
+    add(E, head('PIXEL CONNECT', 'Your pixel puzzle game. Every game picks a random picture from your list (max <b>20</b>), cuts it into pieces and players drag them into place.'));
+    add(E, group('Game page', null, gamePage
+      ? el('div', null, el('div', { class: 'note ok', html: 'The game is on your page <b>' + escHtml(gamePage.title || gamePage.id) + '</b> (yoursite/#/' + escHtml(gamePage.id) + ').' }), el('button', { class: 'ab small', type: 'button', text: '▶ Show it in the preview', onclick: function () { pvGoto(gamePage.id); } }))
+      : el('div', null, el('div', { class: 'note warn', text: 'The game isn’t on any page right now.' }), el('button', { class: 'ab primary small', type: 'button', text: '+ Add the PIXEL CONNECT page', onclick: function () { addGamePage(); changed(); fillPageSelect(); renderTab(); } }))));
+    var count = el('small');
+    function upd() { count.textContent = g.images.length + ' / 20 pictures'; }
+    var list = listEditor(g.images, { key: 'gimg', noDup: true,
+      title: function (x) { return String(x.src || '').split('/').pop() || '(picture)'; }, sub: function () { return ''; },
+      thumb: function (x) { return x.src ? { kind: 'img', url: assetUrl(x.src) } : null; },
+      body: function (x, c, h) { add(c, fImage(x, 'src', 'Picture', { after: h })); },
+      onReorder: upd, empty: 'No pictures yet — until you add some, the game uses your gallery & kit pictures.' });
+    var addMany = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload pictures', onclick: function () {
+      var room = 20 - g.images.length;
+      if (room <= 0) return toast('You already have 20 pictures — remove one first', 'bad');
+      pickFiles('image/*', true).then(function (files) {
+        if (!files.length) return;
+        if (files.length > room) toast('Only adding ' + room + ' — the max is 20 pictures', 'bad', 4000);
+        var seq = Promise.resolve(), n = 0;
+        files.slice(0, room).forEach(function (f) { seq = seq.then(function () { return uploadFile(f, false).then(function (p) { if (p) { g.images.push({ id: uid('gi'), src: p }); n++; } }); }); });
+        seq.then(function () { changed(); list.rerender(); upd(); toast(n + ' picture(s) added ✦', 'ok'); });
+      });
+    } });
+    var addFromGallery = el('button', { class: 'ab small', type: 'button', text: '+ Use my gallery pictures', onclick: function () {
+      var have = {}; g.images.forEach(function (x) { have[x.src] = 1; });
+      var n = 0;
+      S.cfg.gallery.forEach(function (it) { if (g.images.length < 20 && it.src && !have[it.src] && !ytId(it.src) && !isVid(it.src) && !/vimeo/.test(it.src)) { g.images.push({ id: uid('gi'), src: it.src }); have[it.src] = 1; n++; } });
+      changed(); list.rerender(); upd(); toast(n ? n + ' added from your gallery' : 'Nothing new to add', n ? 'ok' : null);
+    } });
+    upd();
+    add(E, group('Pictures', count, el('div', { class: 'add-row', style: 'margin:0 0 10px' }, addMany, addFromGallery), list));
+    add(E, group('Rules', null,
+      row(fNum(g, 'minPieces', 'Fewest pieces', { min: 4, max: 25, def: 6, help: 'Each game picks a random amount between these.' }), fNum(g, 'maxPieces', 'Most pieces', { min: 4, max: 25, def: 20 })),
+      row(fToggle(g, 'pixelate', 'Turn pictures into pixel art', { defOn: true }), fRange(g, 'pixelBlock', 'Pixel chunkiness', { min: 2, max: 16, def: 6 })),
+      row(fToggle(g, 'showGhost', 'Show a faint guide picture on the board', { defOn: true }), fToggle(g, 'sound', '8-bit sound effects', { defOn: true }))));
+    add(E, group('Text', null, fText(g, 'title', 'Game name', { ph: 'PIXEL CONNECT' }), row(fText(g, 'winTitle', 'Win title', { ph: 'YOU WIN!', help: TITLE_HELP }), fText(g, 'winText', 'Win message'))));
+  };
+  function addGamePage() {
+    var id = uniquePageId('pixel-connect');
+    S.cfg.pages.push({ id: id, title: 'PIXEL CONNECT', inNav: true, icon: 'star', sections: [
+      { id: uid('s'), type: 'text', visible: true, align: 'left', title: 'PIXEL {CONNECT}', text: 'Put the picture back together. Every game is a new piece of art ✦', size: 'normal', buttons: [] },
+      { id: uid('s'), type: 'game', visible: true, align: 'left', title: '', subtitle: '' }
+    ] });
+  }
+
+  /* ---------- 🧩 icons & button pictures ---------- */
+  var ICON_SLOTS = [
+    ['menu', 'Menu button (phones)'], ['search', 'Search'], ['play', 'Play badge on videos'], ['close', 'Close (big picture viewer)'], ['prev', 'Previous arrow'], ['next', 'Next arrow'],
+    ['music-play', 'Music: play'], ['music-pause', 'Music: pause'], ['music-prev', 'Music: previous'], ['music-next', 'Music: next'], ['music-volume', 'Music: volume'], ['music-mute', 'Music: muted'], ['music-open', 'Music: small round button'], ['music-min', 'Music: minimise'],
+    ['popup-close', 'Popup close'], ['restart', 'Game: new game'], ['eye', 'Game: peek'], ['volume', 'Game: sound on'], ['mute', 'Game: sound off']
+  ];
+  VIEWS.icons = function (E) {
+    if (!S.cfg.icons || typeof S.cfg.icons !== 'object') S.cfg.icons = {};
+    var ic = S.cfg.icons, t = S.cfg.theme;
+    add(E, head('Icons & Button Images', 'Swap any icon or button on the site for your own picture. Leave a slot empty to keep the pixel default. Transparent PNGs look best.'));
+    add(E, el('div', { class: 'note', html: 'Other places with picture options: every <b>button</b> (open it in its section), each <b>social link</b> and <b>menu page</b>, the <b>header button</b> (Menu, Footer & Socials), the <b>PRESS START</b> button (Intro Page) and each <b>kit’s GO TO</b> (Drum Kits).' }));
+    add(E, group('All kits’ GO TO button', 'used for every kit unless a kit has its own', fImage(t, 'goButtonImage', 'GO TO button picture'),
+      fRange(t, 'goButtonImageHeight', 'Height', { min: 16, max: 100, def: 36, suffix: 'px' })));
+    add(E, group('Icons', null, el('div', { class: 'row' }, ICON_SLOTS.map(function (sl) { return fImage(ic, sl[0], sl[1]); }))));
+  };
+
   function renderTab() {
     var E = $('#editor'); var top = E.scrollTop; E.innerHTML = '';
     var dl = el('datalist', { id: 'dl-pages' }); E.appendChild(dl);
@@ -1494,6 +1661,19 @@
     return fetch(ROOT + 'content/site.json?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
   }
   var draft = null;
+  // upgrade older settings files: add new feature settings without touching the user's own choices
+  function migrate(c) {
+    var v = Number(c.version) || 1, changedAny = false;
+    function fill(obj, defs) { Object.keys(defs).forEach(function (k) { if (obj[k] === undefined) { obj[k] = defs[k]; changedAny = true; } }); }
+    fill(c.music, { enabled: false, tracks: [], autoplay: true, volume: 0.5, shuffle: false, position: 'bottom-left', startMinimized: false, label: 'NOW PLAYING' });
+    fill(c.game, { title: 'PIXEL CONNECT', images: [], minPieces: 6, maxPieces: 20, pixelate: true, pixelBlock: 6, sound: true, showGhost: true, winTitle: 'YOU WIN!', winText: 'Puzzle complete ✦' });
+    fill(c.theme, { scale: 100, scaleMobile: 100 });
+    if (v < 2) {
+      if (!c.pages.some(function (p) { return (p.sections || []).some(function (s) { return s.type === 'game'; }); })) addGamePage();
+      c.version = 2; changedAny = true;
+    }
+    return v < 2 && changedAny;
+  }
   function boot() {
     if (!window.crypto || !crypto.subtle) {
       document.body.innerHTML = '<p style="padding:30px;font-family:sans-serif">The admin panel needs a secure (https) connection.</p>';
@@ -1528,6 +1708,7 @@
       S.published = json(live);
       S.cfg = draft && Array.isArray(draft.pages) ? normalize(draft) : clone(live);
       if (!S.cfg.adminEntry) S.cfg.adminEntry = { taps: 5, word: '' };
+      S.migrated = migrate(S.cfg);
       var fixLock = Promise.resolve();
       if (S.newLock) S.cfg.admin = S.newLock;
       else {
@@ -1544,6 +1725,7 @@
       S.ready = true;
       renderSide(); renderTab(); updateStatus(); fillPageSelect();
       if (S.newLock) toast('Password set ✦ Press Publish to switch the lock on everywhere', 'ok', 6000);
+      else if (S.migrated) toast('New features added (PIXEL CONNECT page, music, popups…) ✦ Press Publish to put them live', 'ok', 7000);
       else if (draft && json(S.cfg) !== S.published) toast('Restored your unpublished draft ✦', null, 3500);
       sendPreview(true);
     }).catch(function (e) {
