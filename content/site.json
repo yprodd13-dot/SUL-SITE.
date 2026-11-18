@@ -44,7 +44,7 @@
     "cardStyle": "pixel",
     "contentWidth": 1180,
     "pixelBorder": 3,
-    "scale": 100,
+    "scale": 75,
     "scaleMobile": 100
   },
   "background": {
