@@ -844,3 +844,8 @@ body.pop-lock { overflow: hidden; }
   .zr-tr { grid-template-columns: 1fr; gap: 0; }
   .drop { min-height: 260px; }
 }
+.bg-top { margin: 0 0 12px; }
+.bg-top .tc-chips { padding: 0; }
+.bg-views { margin-left: auto; }
+.bg-stage.zoomed { display: block; overflow: auto; max-height: calc(75vh / var(--scale)); }
+.bg-stage.zoomed .stage-img { max-width: none; max-height: none; }

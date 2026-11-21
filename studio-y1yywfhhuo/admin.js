@@ -1551,7 +1551,7 @@
   };
   /* ---------- 🛠 Tools ---------- */
   var TOOL_LIST = [
-    ['dither', 'DITHER LAB', 'Retro dithering with 12 patterns and colour palettes.'],
+    ['dither', 'DITHER LAB', 'Dither & halftone: 30+ patterns, dot shapes, sizes & colours.'],
     ['y2k', 'Y2K COVER', 'Turn any photo into a 2000s magazine cover.'],
     ['glow', 'GLOW STUDIO', 'Bloom, neon edges, dreamy haze, star glints.'],
     ['texture', 'TEXTURE LAB', 'Lay textures over your picture with blend modes.'],
@@ -1594,9 +1594,10 @@
     T.order = arr.map(function (x) { return x.id; });
     add(E, group('Your tools', 'drag to change the order', list));
     var tex = listEditor(T.textures, { key: 'tex', noDup: true,
-      title: function (x) { return x.name || String(x.src || '').split('/').pop() || '(texture)'; }, sub: function () { return ''; },
+      title: function (x) { return (x.name || String(x.src || '').split('/').pop() || '(texture)') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function () { return ''; },
+      hidden: function (x) { return x.enabled === false; },
       thumb: function (x) { return x.src ? { kind: 'img', url: assetUrl(x.src) } : null; },
-      body: function (x, c, h) { add(c, [fText(x, 'name', 'Name shown under it', { after: h }), fImage(x, 'src', 'Texture picture', { after: h })]); },
+      body: function (x, c, h) { add(c, [fToggle(x, 'enabled', 'Visitors can use this texture', { defOn: true, after: h }), fText(x, 'name', 'Name shown under it', { after: h }), fImage(x, 'src', 'Texture picture', { after: h })]); },
       empty: 'No textures uploaded yet — the built-in ones are used.' });
     var up = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload textures', onclick: function () {
       pickFiles('image/*', true).then(function (files) {
@@ -1608,8 +1609,34 @@
     } });
     add(E, group('Texture library', 'what people can pick in TEXTURE LAB',
       el('div', { class: 'note', html: 'Upload paper, grain, dust, halftone, holo foil, film burns… Square pictures around 1000–2000px work best. Visitors scroll through them and pick a blend mode.' }),
-      el('div', { class: 'add-row', style: 'margin:0 0 10px' }, up), tex,
-      row(fToggle(T, 'builtinTextures', 'Also include the 12 built-in textures', { defOn: true }), fToggle(T, 'allowUpload', 'Let visitors use their own texture too', { defOn: true }))));
+      el('div', { class: 'add-row', style: 'margin:0 0 10px' }, up), tex));
+    // built-in textures: switch each one on/off
+    var BUILT = [['paper', 'Paper grain'], ['grain', 'Film grain'], ['halftone', 'Halftone dots'], ['scratches', 'Scratches'], ['dust', 'Dust'], ['vhs', 'VHS lines'], ['grid', 'Pixel grid'], ['glitter', 'Glitter'], ['holo', 'Holo foil'], ['crumple', 'Crumpled'], ['canvas', 'Canvas weave'], ['stars', 'Sparkles']];
+    if (!Array.isArray(T.hiddenTextures)) T.hiddenTextures = [];
+    if (T.builtinTextures === false) { T.hiddenTextures = BUILT.map(function (b) { return b[0]; }); T.builtinTextures = true; }
+    var bgrid = el('div', { class: 'preset-grid tex-admin' }), bcount = el('small');
+    function drawBuilt() {
+      bgrid.innerHTML = '';
+      var on = 0;
+      BUILT.forEach(function (b) {
+        var off = T.hiddenTextures.indexOf(b[0]) >= 0; if (!off) on++;
+        var th = window.PixFX ? window.PixFX.builtinTexture(b[0], 120, 80) : el('div');
+        th.style.cssText = 'width:100%;height:64px;display:block;border-radius:7px;margin-bottom:6px;' + (off ? 'filter:grayscale(1);opacity:.35' : '');
+        bgrid.appendChild(el('button', { class: 'preset', type: 'button', title: off ? 'Click to let visitors use it' : 'Click to take it away', style: off ? 'border-style:dashed' : 'border-color:#ff3fc8', onclick: function () {
+          var i = T.hiddenTextures.indexOf(b[0]); if (i >= 0) T.hiddenTextures.splice(i, 1); else T.hiddenTextures.push(b[0]);
+          changed(); drawBuilt();
+        } }, th, el('b', { text: (off ? '✕ ' : '✓ ') + b[1] })));
+      });
+      bcount.textContent = on + ' / ' + BUILT.length + ' on';
+    }
+    drawBuilt();
+    add(E, group('Built-in textures', bcount,
+      el('div', { class: 'note', html: 'Click a texture to <b>take it away</b> (grey) or <b>bring it back</b> (pink ✓). Only the ones that are on show up for visitors.' }),
+      el('div', { class: 'add-row', style: 'margin:0 0 10px' },
+        el('button', { class: 'ab small', type: 'button', text: '✓ All on', onclick: function () { T.hiddenTextures = []; changed(); drawBuilt(); } }),
+        el('button', { class: 'ab small', type: 'button', text: '✕ All off', onclick: function () { T.hiddenTextures = BUILT.map(function (b) { return b[0]; }); changed(); drawBuilt(); } })),
+      bgrid,
+      fToggle(T, 'allowUpload', 'Let visitors use their own texture too', { defOn: true })));
     add(E, el('div', { class: 'note', html: '<b>Good to know:</b> the AI background remover and the MP3 encoder load free open-source code (from jsdelivr.net) the first time someone uses them. The AI model is downloaded once (~40–170 MB) and then cached. Everything else is built into your site.' }));
   };
   function addGamePage() {

@@ -22,7 +22,7 @@
     music: { enabled: false, tracks: [], autoplay: true, volume: 0.5, shuffle: false, position: 'bottom-left', startMinimized: false, label: 'NOW PLAYING' },
     popups: [],
     icons: {},
-    tools: { order: [], items: {}, textures: [], builtinTextures: true, allowUpload: true },
+    tools: { order: [], items: {}, textures: [], hiddenTextures: [], builtinTextures: true, allowUpload: true },
     game: { title: 'PIXEL CONNECT', images: [], minPieces: 6, maxPieces: 20, pixelate: true, pixelBlock: 6, sound: true, showGhost: true, winTitle: 'YOU WIN!', winText: 'Puzzle complete ✦' },
     pages: [{ id: 'home', title: 'HOME', inNav: true, sections: [] }],
     kits: [],

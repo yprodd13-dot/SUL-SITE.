@@ -500,9 +500,287 @@
     return out;
   }
 
+
+  /* =========================================================
+     DITHER v2 — error diffusion / shaped ordered patterns / halftone
+     ========================================================= */
+  // shape functions: (u,v) in [-0.5,0.5] → "fill order" value (low = fills first)
+  var SHAPES = {
+    dot: function (u, v) { return Math.sqrt(u * u + v * v); },
+    square: function (u, v) { return Math.max(Math.abs(u), Math.abs(v)); },
+    diamond: function (u, v) { return Math.abs(u) + Math.abs(v); },
+    ellipse: function (u, v) { return Math.sqrt(u * u * 0.45 + v * v * 1.8); },
+    lines: function (u, v) { return Math.abs(v); },
+    vlines: function (u, v) { return Math.abs(u); },
+    diagonal: function (u, v) { var d = (u + v) / 1.4142; d = d - Math.round(d); return Math.abs(d); },
+    cross: function (u, v) { return Math.min(Math.abs(u), Math.abs(v)) + 0.15 * Math.max(Math.abs(u), Math.abs(v)); },
+    ring: function (u, v) { return Math.abs(Math.sqrt(u * u + v * v) - 0.28) + 0.02 * Math.sqrt(u * u + v * v); },
+    star: function (u, v) { var r = Math.sqrt(u * u + v * v), a = Math.atan2(v, u); return r / (0.62 + 0.38 * Math.cos(5 * a)); },
+    heart: function (u, v) { var x = u * 2.6, y = -v * 2.6 + 0.35; var q = x * x + y * y - 1; return Math.cbrt(q * q * q - x * x * y * y * y) + 1.2 + 0.05 * Math.sqrt(u * u + v * v); },
+    wave: function (u, v) { return Math.abs(v - 0.18 * Math.sin(u * 6.283)); },
+    checker: function (u, v) { return (u < 0) === (v < 0) ? 0.25 + Math.max(Math.abs(u), Math.abs(v)) * 0.2 : 0.6 + Math.max(Math.abs(u), Math.abs(v)) * 0.2; },
+    triangle: function (u, v) { return Math.max(-v * 1.2, (v * 0.6 + Math.abs(u) * 1.04)) ; }
+  };
+  var SHAPE_LIST = [['dot', 'Dots'], ['square', 'Squares'], ['diamond', 'Diamonds'], ['ellipse', 'Ellipses'], ['lines', 'Lines'], ['vlines', 'Vertical lines'], ['diagonal', 'Diagonal'], ['cross', 'Crosses'], ['ring', 'Rings'], ['star', 'Stars'], ['heart', 'Hearts'], ['triangle', 'Triangles'], ['wave', 'Waves'], ['checker', 'Checker']];
+  var ORDERED_LIST = [['bayer2', 'Bayer 2×2'], ['bayer4', 'Bayer 4×4'], ['bayer8', 'Bayer 8×8'], ['bayer16', 'Bayer 16×16']].concat(SHAPE_LIST);
+  var DIFFUSION_LIST = [['floyd', 'Floyd–Steinberg'], ['atkinson', 'Atkinson (Mac)'], ['jarvis', 'Jarvis-Judice-Ninke'], ['stucki', 'Stucki'], ['burkes', 'Burkes'], ['sierra', 'Sierra'], ['sierralite', 'Sierra Lite'], ['noise', 'Random noise'], ['threshold', 'Threshold (no dither)']];
+  var shapeCDF = {};
+  function shapeRank(name) { // tone-correct lookup: shape value → 0..1 rank
+    if (shapeCDF[name]) return shapeCDF[name];
+    var f = SHAPES[name], N = 64, vals = [];
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) vals.push(f((x + 0.5) / N - 0.5, (y + 0.5) / N - 0.5));
+    vals.sort(function (a, b) { return a - b; });
+    var lo = vals[0], hi = vals[vals.length - 1];
+    var fn = function (v) { var a = 0, b = vals.length - 1; if (v <= lo) return 0; if (v >= hi) return 1; while (a < b) { var m = (a + b) >> 1; if (vals[m] < v) a = m + 1; else b = m; } return a / (vals.length - 1); };
+    return (shapeCDF[name] = fn);
+  }
+  function getPalette(o) {
+    if (o.palette === 'levels') return null;
+    if (o.palette === 'custom') return (o.colors && o.colors.length ? o.colors : ['#000', '#fff']).map(hex);
+    if (o.palette === 'inkpaper') return [hex(o.ink || '#2a1240'), hex(o.paper || '#ffffff')];
+    return (PALETTES[o.palette] || PALETTES['1bit']).colors.map(hex);
+  }
+  function toneData(d, o) {
+    adjustData(d, { brightness: o.brightness || 0, contrast: o.contrast || 0, saturation: o.saturation || 0 });
+    var g = o.gamma && o.gamma !== 1 ? 1 / o.gamma : 0, i;
+    if (g) { var lut = new Uint8ClampedArray(256); for (i = 0; i < 256; i++) lut[i] = 255 * Math.pow(i / 255, g); for (i = 0; i < d.length; i += 4) { d[i] = lut[clamp(Math.round(d[i]), 0, 255)]; d[i + 1] = lut[clamp(Math.round(d[i + 1]), 0, 255)]; d[i + 2] = lut[clamp(Math.round(d[i + 2]), 0, 255)]; } }
+    if (o.invert) for (i = 0; i < d.length; i += 4) { d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2]; }
+  }
+  // o: { mode:'diffusion'|'ordered'|'halftone', algo, pattern, shape, cell, angle, dotScale, colorMode, palette, colors, ink, paper, levels, scale, strength, serpentine, brightness, contrast, gamma, invert, mix, smooth }
+  function dither2(src, o) {
+    o = o || {};
+    var out = o.mode === 'halftone' ? halftoneArt(src, o) : ditherPx(src, o);
+    if (o.mix != null && o.mix < 100) { var m = clone(src), g = m.getContext('2d'); g.globalAlpha = clamp(o.mix / 100, 0, 1); g.drawImage(out, 0, 0); out = m; }
+    return out;
+  }
+  function ditherPx(src, o) {
+    var scale = clamp(Math.round(o.scale || 1), 1, 32);
+    var w = Math.max(1, Math.round(src.width / scale)), h = Math.max(1, Math.round(src.height / scale));
+    var small = mk(w, h), sg = small.getContext('2d');
+    sg.imageSmoothingQuality = 'high'; sg.drawImage(src, 0, 0, w, h);
+    var id = data(small), d = id.data;
+    toneData(d, o);
+    var pal = getPalette(o);
+    var lv = clamp(Math.round(o.levels || 2), 2, 16), step = 255 / (lv - 1);
+    var q = pal ? function (r, g, b) { return nearest(pal, r, g, b); } : function (r, g, b) { return [Math.round(clamp(r, 0, 255) / step) * step, Math.round(clamp(g, 0, 255) / step) * step, Math.round(clamp(b, 0, 255) / step) * step]; };
+    var strength = o.strength == null ? 1 : clamp(o.strength, 0, 2);
+    var f = new Float32Array(w * h * 3), i, x, y, p;
+    for (i = 0, p = 0; i < d.length; i += 4, p += 3) { f[p] = d[i]; f[p + 1] = d[i + 1]; f[p + 2] = d[i + 2]; }
+    var mode = o.mode || (KERNELS[o.algo] || o.algo === 'noise' || o.algo === 'threshold' ? 'diffusion' : 'ordered');
+    var algo = o.algo || 'floyd';
+    if (mode === 'diffusion' && KERNELS[algo]) {
+      var K = KERNELS[algo], serp = o.serpentine !== false;
+      for (y = 0; y < h; y++) {
+        var rev = serp && (y & 1), xs = rev ? w - 1 : 0, xe = rev ? -1 : w, dx = rev ? -1 : 1;
+        for (x = xs; x !== xe; x += dx) {
+          p = (y * w + x) * 3;
+          var or = f[p], og = f[p + 1], ob = f[p + 2], c = q(or, og, ob);
+          var er = (or - c[0]) * strength, eg = (og - c[1]) * strength, eb = (ob - c[2]) * strength;
+          f[p] = c[0]; f[p + 1] = c[1]; f[p + 2] = c[2];
+          for (var k = 0; k < K.k.length; k++) {
+            var kx = x + (rev ? -K.k[k][0] : K.k[k][0]), ky = y + K.k[k][1];
+            if (kx < 0 || kx >= w || ky >= h) continue;
+            var pp = (ky * w + kx) * 3, wgt = K.k[k][2] / K.div;
+            f[pp] += er * wgt; f[pp + 1] += eg * wgt; f[pp + 2] += eb * wgt;
+          }
+        }
+      }
+    } else {
+      var spread = pal ? 255 / Math.max(1, pal.length - 1) * 1.05 : step;
+      spread *= strength;
+      var pat = mode === 'ordered' ? (o.pattern || 'bayer8') : algo, rand = rng(1234), M = null, mn = 0, rank = null;
+      var cell = Math.max(2, o.cell || 8), ang = (o.angle || 0) * Math.PI / 180, ca = Math.cos(ang), sa = Math.sin(ang);
+      if (/^bayer/.test(pat)) { M = bayer(+pat.slice(5)); mn = M.length; }
+      else if (SHAPES[pat]) rank = shapeRank(pat);
+      for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+        p = (y * w + x) * 3;
+        var t = 0;
+        if (M) { var bz = Math.max(1, Math.round(cell / 8)), bx = Math.floor(x / bz), by = Math.floor(y / bz); t = (M[((by % mn) + mn) % mn][((bx % mn) + mn) % mn] + 0.5) / (mn * mn) - 0.5; }
+        else if (rank) { var rx = (x * ca + y * sa) / cell, ry = (-x * sa + y * ca) / cell; var u = rx - Math.floor(rx) - 0.5, v = ry - Math.floor(ry) - 0.5; t = rank(SHAPES[pat](u, v)) - 0.5; }
+        else if (pat === 'noise') t = rand() - 0.5;
+        t *= spread;
+        var cc = q(f[p] + t, f[p + 1] + t, f[p + 2] + t);
+        f[p] = cc[0]; f[p + 1] = cc[1]; f[p + 2] = cc[2];
+      }
+    }
+    for (i = 0, p = 0; i < d.length; i += 4, p += 3) { d[i] = f[p]; d[i + 1] = f[p + 1]; d[i + 2] = f[p + 2]; }
+    put(small, id);
+    var out = mk(src.width, src.height), og2 = out.getContext('2d');
+    og2.imageSmoothingEnabled = false;
+    og2.drawImage(small, 0, 0, out.width, out.height);
+    og2.globalCompositeOperation = 'destination-in'; og2.drawImage(src, 0, 0);
+    return out;
+  }
+  // AM halftone: shapes sized by darkness, on a rotated grid
+  function drawShape(g, shape, cx, cy, s, rot) {
+    // s = 0..1 coverage → size; drawn in a unit cell of size 1 (caller scales)
+    g.save(); g.translate(cx, cy); g.rotate(rot); g.beginPath();
+    var r;
+    switch (shape) {
+      case 'square': r = Math.sqrt(s) / 2; g.rect(-r, -r, r * 2, r * 2); break;
+      case 'diamond': r = Math.sqrt(s) * 0.7071; g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath(); break;
+      case 'ellipse': r = Math.sqrt(s / Math.PI) * 1.0; g.ellipse(0, 0, r * 1.45, r * 0.69, 0, 0, 6.2832); break;
+      case 'lines': g.rect(-0.5, -s / 2, 1.02, s); break;
+      case 'vlines': g.rect(-s / 2, -0.5, s, 1.02); break;
+      case 'diagonal': g.rotate(Math.PI / 4); g.rect(-0.75, -s / 2 * 0.7071, 1.5, s * 0.7071); break;
+      case 'cross': var t = (1 - Math.sqrt(1 - s)) / 2 + 0.001; g.rect(-0.5, -t, 1.02, t * 2); g.rect(-t, -0.5, t * 2, 1.02); break;
+      case 'ring': var ro = Math.min(0.62, Math.sqrt(s / Math.PI) * 1.25), ri = ro * 0.55; g.arc(0, 0, ro, 0, 6.2832); g.moveTo(ri, 0); g.arc(0, 0, ri, 0, 6.2832, true); break;
+      case 'star': r = Math.sqrt(s) * 0.8; for (var k = 0; k < 10; k++) { var a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.42 : r; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); break;
+      case 'heart': r = Math.sqrt(s) * 0.62; g.moveTo(0, r * 0.9); g.bezierCurveTo(-r * 1.6, -r * 0.2, -r * 0.7, -r * 1.25, 0, -r * 0.45); g.bezierCurveTo(r * 0.7, -r * 1.25, r * 1.6, -r * 0.2, 0, r * 0.9); break;
+      case 'triangle': r = Math.sqrt(s) * 0.9; g.moveTo(0, -r * 0.8); g.lineTo(r * 0.85, r * 0.6); g.lineTo(-r * 0.85, r * 0.6); g.closePath(); break;
+      case 'wave': g.moveTo(-0.5, -s / 2); for (var q2 = 0; q2 <= 8; q2++) { var xx = -0.5 + q2 / 8; g.lineTo(xx, -s / 2 + 0.16 * Math.sin(xx * 6.2832)); } for (q2 = 8; q2 >= 0; q2--) { xx = -0.5 + q2 / 8; g.lineTo(xx, s / 2 + 0.16 * Math.sin(xx * 6.2832)); } g.closePath(); break;
+      case 'checker': r = Math.sqrt(s) / 2; g.rect(-0.5, -0.5, r, r); g.rect(0.5 - r, 0.5 - r, r, r); g.rect(-0.5, 0.5 - r, r, r); g.rect(0.5 - r, -0.5, r, r); break;
+      default: r = Math.sqrt(s / Math.PI); g.arc(0, 0, r, 0, 6.2832);
+    }
+    g.fill(); g.restore();
+  }
+  function halftoneArt(src, o) {
+    var W = src.width, H = src.height, cell = Math.max(3, o.cell || 10), shape = o.shape || 'dot', scaleK = (o.dotScale == null ? 100 : o.dotScale) / 100;
+    var cm = o.colorMode || 'mono';
+    var base = clone(src), bid = data(base); toneData(bid.data, o); put(base, bid);
+    var out = mk(W, H), g = out.getContext('2d');
+    var sm = blurCanvas(base, Math.max(1, cell / 3)), sd = data(sm).data;
+    function sample(x, y) { x = clamp(Math.round(x), 0, W - 1); y = clamp(Math.round(y), 0, H - 1); var i = (y * W + x) * 4; return [sd[i], sd[i + 1], sd[i + 2], sd[i + 3]]; }
+    function pass(angleDeg, fillFor, comp) {
+      var a = angleDeg * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a), R = Math.sqrt(W * W + H * H) / 2 + cell, cx = W / 2, cy = H / 2;
+      for (var gy = -R; gy <= R; gy += cell) for (var gx = -R; gx <= R; gx += cell) {
+        var px2 = cx + gx * ca - gy * sa, py = cy + gx * sa + gy * ca;
+        if (px2 < -cell || py < -cell || px2 > W + cell || py > H + cell) continue;
+        var c = sample(px2, py); if (c[3] < 10) continue;
+        var f = fillFor(c); if (f.cov <= 0.003) continue;
+        g.fillStyle = f.color;
+        g.save(); g.translate(px2, py); g.scale(cell, cell);
+        drawShape(g, shape, 0, 0, clamp(f.cov * scaleK * scaleK, 0, 1.6), /heart|star|triangle/.test(shape) ? 0 : a); g.restore();
+      }
+    }
+    var ink = o.ink || '#2a1240', paper = o.paper || '#ffffff', ang = o.angle == null ? 45 : o.angle;
+    if (cm === 'cmyk') {
+      g.fillStyle = paper; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'multiply';
+      var chans = [['#00ffff', 15, 0], ['#ff00ff', 75, 1], ['#ffff00', 0, 2], ['#000000', 45, 3]];
+      chans.forEach(function (ch) {
+        pass(ang - 45 + ch[1], function (c) { var r = c[0] / 255, gg = c[1] / 255, b = c[2] / 255, k = 1 - Math.max(r, gg, b), v; if (ch[2] === 3) v = k; else v = k >= 1 ? 0 : (1 - [r, gg, b][ch[2]] - k) / (1 - k); return { cov: v * (ch[2] === 3 ? 1 : 0.9), color: ch[0] }; });
+      });
+    } else if (cm === 'rgb') {
+      g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'lighter';
+      [['#ff0000', 15, 0], ['#00ff00', 45, 1], ['#0000ff', 75, 2]].forEach(function (ch) { pass(ang - 45 + ch[1], function (c) { return { cov: c[ch[2]] / 255, color: ch[0] }; }); });
+    } else if (cm === 'color') {
+      g.fillStyle = paper; g.fillRect(0, 0, W, H);
+      pass(ang, function (c) { var L = lum(c[0], c[1], c[2]) / 255; return { cov: 1 - L * 0.85, color: 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')' }; });
+    } else {
+      g.fillStyle = paper; g.fillRect(0, 0, W, H);
+      pass(ang, function (c) { return { cov: 1 - lum(c[0], c[1], c[2]) / 255, color: ink }; });
+    }
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-over';
+    return out;
+  }
+
+  /* =========================================================
+     MASK tools (background remover refine)
+     alpha = Float32Array 0..1, size w*h
+     ========================================================= */
+  function boxF(src, w, h, r) {
+    var tmp = new Float32Array(w * h), out = new Float32Array(w * h), x, y, s, i, d = 2 * r + 1;
+    for (y = 0; y < h; y++) {
+      var row = y * w; s = 0;
+      for (x = -r; x <= r; x++) s += src[row + clamp(x, 0, w - 1)];
+      for (x = 0; x < w; x++) { tmp[row + x] = s / d; s += src[row + Math.min(w - 1, x + r + 1)] - src[row + Math.max(0, x - r)]; }
+    }
+    for (x = 0; x < w; x++) {
+      s = 0;
+      for (y = -r; y <= r; y++) s += tmp[clamp(y, 0, h - 1) * w + x];
+      for (y = 0; y < h; y++) { out[y * w + x] = s / d; s += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x]; }
+    }
+    return out;
+  }
+  function grayOf(c) { var d = data(c).data, n = c.width * c.height, I = new Float32Array(n); for (var i = 0; i < n; i++) I[i] = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255; return I; }
+  // guided filter: makes the mask edges follow the real edges of the photo (hair, fur, fine detail)
+  function guided(I, p, w, h, r, eps) {
+    var n = w * h, Ip = new Float32Array(n), II = new Float32Array(n), i;
+    for (i = 0; i < n; i++) { Ip[i] = I[i] * p[i]; II[i] = I[i] * I[i]; }
+    var mI = boxF(I, w, h, r), mP = boxF(p, w, h, r), mIp = boxF(Ip, w, h, r), mII = boxF(II, w, h, r);
+    var A = Ip, B = II; // reuse
+    for (i = 0; i < n; i++) { var cov = mIp[i] - mI[i] * mP[i], vr = mII[i] - mI[i] * mI[i]; A[i] = cov / (vr + eps); B[i] = mP[i] - A[i] * mI[i]; }
+    var mA = boxF(A, w, h, r), mB = boxF(B, w, h, r), q = mI;
+    for (i = 0; i < n; i++) q[i] = clamp(mA[i] * I[i] + mB[i], 0, 1);
+    return q;
+  }
+  function morph(a, w, h, r, grow) { // square min/max filter (separable)
+    if (r < 1) return a;
+    var tmp = new Float32Array(w * h), out = new Float32Array(w * h), x, y, k, m;
+    var pick = grow ? Math.max : Math.min;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { m = a[y * w + x]; for (k = Math.max(0, x - r); k <= Math.min(w - 1, x + r); k++) m = pick(m, a[y * w + k]); tmp[y * w + x] = m; }
+    for (x = 0; x < w; x++) for (y = 0; y < h; y++) { m = tmp[y * w + x]; for (k = Math.max(0, y - r); k <= Math.min(h - 1, y + r); k++) m = pick(m, tmp[k * w + x]); out[y * w + x] = m; }
+    return out;
+  }
+  function components(bin, w, h) { // 4-connected labels for pixels where bin[i]=1
+    var lab = new Int32Array(w * h), sizes = [0], touches = [false], st = new Int32Array(w * h), n = 0;
+    for (var i = 0; i < w * h; i++) {
+      if (!bin[i] || lab[i]) continue;
+      n++; var sp = 0, size = 0, edge = false; st[sp++] = i; lab[i] = n;
+      while (sp) {
+        var p = st[--sp], x = p % w, y = (p / w) | 0; size++;
+        if (x === 0 || y === 0 || x === w - 1 || y === h - 1) edge = true;
+        if (x > 0 && bin[p - 1] && !lab[p - 1]) { lab[p - 1] = n; st[sp++] = p - 1; }
+        if (x < w - 1 && bin[p + 1] && !lab[p + 1]) { lab[p + 1] = n; st[sp++] = p + 1; }
+        if (y > 0 && bin[p - w] && !lab[p - w]) { lab[p - w] = n; st[sp++] = p - w; }
+        if (y < h - 1 && bin[p + w] && !lab[p + w]) { lab[p + w] = n; st[sp++] = p + w; }
+      }
+      sizes.push(size); touches.push(edge);
+    }
+    return { lab: lab, sizes: sizes, touches: touches };
+  }
+  // o: { detail 0..10, hardness 0..100, grow -20..20, feather px, specks 0..100, holes bool }
+  function refineMask(alpha, guide, w, h, o) {
+    var a = alpha.slice(), n = w * h, i, k = Math.max(w, h) / 1000;
+    if (o.detail > 0) {
+      var I = grayOf(guide), r = Math.max(2, Math.round((2 + o.detail * 1.6) * Math.max(0.6, k))), eps = Math.pow(10, -2 - o.detail * 0.25);
+      var q = guided(I, a, w, h, r, eps), band = boxF(a, w, h, r * 2);
+      for (i = 0; i < n; i++) { var bnd = band[i] > 0.01 && band[i] < 0.99; if (bnd) a[i] = q[i]; }
+    }
+    if (o.specks > 0 || o.holes) {
+      var bin = new Uint8Array(n); for (i = 0; i < n; i++) bin[i] = a[i] > 0.5 ? 1 : 0;
+      if (o.specks > 0) {
+        var C = components(bin, w, h), big = 0; for (i = 1; i < C.sizes.length; i++) big = Math.max(big, C.sizes[i]);
+        var min = big * Math.pow(o.specks / 100, 2) * 0.6, keep = new Float32Array(n);
+        for (i = 0; i < n; i++) keep[i] = C.lab[i] && C.sizes[C.lab[i]] >= min ? 1 : 0;
+        keep = morph(keep, w, h, Math.max(2, Math.round(3 * k)), true);
+        for (i = 0; i < n; i++) a[i] *= keep[i];
+      }
+      if (o.holes) {
+        for (i = 0; i < n; i++) bin[i] = a[i] > 0.5 ? 0 : 1;
+        var Hc = components(bin, w, h), maxHole = n * 0.03;
+        for (i = 0; i < n; i++) { var L = Hc.lab[i]; if (L && !Hc.touches[L] && Hc.sizes[L] < maxHole) a[i] = 1; }
+      }
+    }
+    if (o.grow) a = morph(a, w, h, Math.round(Math.abs(o.grow) * Math.max(0.6, k)), o.grow > 0);
+    if (o.hardness > 0) {
+      var hd = clamp(o.hardness / 100, 0, 0.98), lo = 0.5 * hd, hi = 1 - 0.5 * hd;
+      for (i = 0; i < n; i++) { var t = clamp((a[i] - lo) / (hi - lo), 0, 1); a[i] = t * t * (3 - 2 * t); }
+    }
+    if (o.feather > 0) { var fr = Math.round(o.feather * Math.max(0.6, k)); a = boxF(boxF(a, w, h, fr), w, h, fr); }
+    return a;
+  }
+  function maskCanvas(a, w, h) { var c = mk(w, h), id = c.getContext('2d').createImageData(w, h), d = id.data; for (var i = 0; i < w * h; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = a[i] * 255; } c.getContext('2d').putImageData(id, 0, 0); return c; }
+  function alphaFromCanvas(c) { var d = data(c).data, n = c.width * c.height, a = new Float32Array(n); for (var i = 0; i < n; i++) a[i] = d[i * 4 + 3] / 255; return a; }
+  function grayToAlpha(c) { var d = data(c).data, n = c.width * c.height, a = new Float32Array(n); for (var i = 0; i < n; i++) a[i] = d[i * 4] / 255; return a; }
+  // remove the old background's colour from soft edges (no more white/green halos)
+  function decontaminate(img, a, w, h) {
+    var d = data(img).data, n = w * h, sure = new Float32Array(n), R = new Float32Array(n), G = new Float32Array(n), B = new Float32Array(n), i;
+    for (i = 0; i < n; i++) { var s = a[i] > 0.92 ? 1 : 0; sure[i] = s; R[i] = d[i * 4] * s; G[i] = d[i * 4 + 1] * s; B[i] = d[i * 4 + 2] * s; }
+    var r = Math.max(3, Math.round(Math.max(w, h) / 300));
+    var mS = boxF(sure, w, h, r), mR = boxF(R, w, h, r), mG = boxF(G, w, h, r), mB = boxF(B, w, h, r);
+    var out = mk(w, h), id = out.getContext('2d').createImageData(w, h), o = id.data;
+    for (i = 0; i < n; i++) {
+      if (a[i] > 0.02 && a[i] < 0.92 && mS[i] > 0.001) { o[i * 4] = mR[i] / mS[i]; o[i * 4 + 1] = mG[i] / mS[i]; o[i * 4 + 2] = mB[i] / mS[i]; o[i * 4 + 3] = 255 * Math.min(1, (0.92 - a[i]) * 3 + 0.4); }
+    }
+    out.getContext('2d').putImageData(id, 0, 0);
+    return out;
+  }
+
   window.PixFX = {
     mk: mk, clone: clone, loadImage: loadImage, toCanvas: toCanvas, blur: blurCanvas, adjust: adjust,
-    dither: dither, PALETTES: PALETTES, DITHER_ALGOS: DITHER_ALGOS,
+    dither: dither, dither2: dither2, halftoneArt: halftoneArt, PALETTES: PALETTES, DITHER_ALGOS: DITHER_ALGOS, SHAPE_LIST: SHAPE_LIST, ORDERED_LIST: ORDERED_LIST, DIFFUSION_LIST: DIFFUSION_LIST,
+    Mask: { refine: refineMask, toCanvas: maskCanvas, fromAlpha: alphaFromCanvas, fromGray: grayToAlpha, decontaminate: decontaminate, box: boxF, guided: guided, morph: morph },
     glow: glow, applyTexture: applyTexture, BLENDS: BLENDS, BUILTIN_TEX: BUILTIN_TEX, builtinTexture: builtinTexture,
     EFFECTS: EFFECTS, magazine: magazine, Y2K_GRADES: Y2K_GRADES, hex: hex
   };

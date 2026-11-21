@@ -13,7 +13,7 @@
 
   /* ---------- tool list ---------- */
   var TOOLS = [
-    { id: 'dither', title: 'DITHER LAB', desc: 'Retro dithering with 12 patterns and colour palettes.' },
+    { id: 'dither', title: 'DITHER LAB', desc: 'Dither & halftone: 30+ patterns, dot shapes, sizes & colours.' },
     { id: 'y2k', title: 'Y2K COVER', desc: 'Turn any photo into a 2000s magazine cover.' },
     { id: 'glow', title: 'GLOW STUDIO', desc: 'Bloom, neon edges, dreamy haze, star glints.' },
     { id: 'texture', title: 'TEXTURE LAB', desc: 'Lay textures over your picture with blend modes.' },
@@ -93,7 +93,7 @@
     var rows = [];
     defs.forEach(function (d) {
       if (d.type === 'head') { var hh = h('div', { class: 'tc-head' }, E(d.label)); box.appendChild(hh); rows.push([d, hh]); return; }
-      var row = h('label', { class: 'tc tc-' + d.type }), id = 'tc-' + d.k + '-' + Math.random().toString(36).slice(2, 6);
+      var row = h('label', { class: 'tc tct-' + d.type }), id = 'tc-' + d.k + '-' + Math.random().toString(36).slice(2, 6);
       var lab = '<span class="tc-l">' + E(d.label) + (d.type === 'range' ? ' <b data-v></b>' : '') + '</span>';
       var v = state[d.k];
       if (d.type === 'range') row.innerHTML = lab + '<input type="range" id="' + id + '" min="' + d.min + '" max="' + d.max + '" step="' + (d.step || 1) + '" value="' + v + '">';
@@ -126,6 +126,7 @@
         });
       }
       box.appendChild(row); rows.push([d, row]);
+      var sc = row.querySelector('.tc-scroll'), on = sc && sc.querySelector('.is-on'); if (on) requestAnimationFrame(function () { sc.scrollLeft = Math.max(0, on.offsetLeft - sc.offsetLeft - 30); });
     });
     function vis() { rows.forEach(function (r) { if (r[0].show) r[1].hidden = !r[0].show(state); }); }
     vis();
@@ -209,6 +210,7 @@
     buildControls(qBox, [{ k: 'q', label: 'Resolution', type: 'select', options: QUAL, help: 'Bigger = sharper download, slower live preview.' }], st, function () { st.q = +st.q; prepare(); });
     Object.assign(st, T.defaults || {});
     buildControls(root.querySelector('.tc-box'), T.controls, st, function () { schedule(); });
+    ctx.rebuild = function () { buildControls(root.querySelector('.tc-box'), T.controls, st, function () { schedule(); }); schedule(0); };
     if (T.extra) T.extra(root.querySelector('.tool-extra'), st, function () { schedule(); }, ctx);
     return { rerender: function () { schedule(); } };
   }
@@ -219,31 +221,64 @@
   }
 
   /* ---------- per-tool definitions ---------- */
-  function palOptions() { var o = Object.keys(PixFX.PALETTES).map(function (k) { return [k, PixFX.PALETTES[k].name, 'linear-gradient(90deg,' + PixFX.PALETTES[k].colors.join(',') + ')']; }); o.push(['custom', 'My colours', 'conic-gradient(#ff3fc8,#38c8ff,#ffe14d,#ff3fc8)']); o.push(['levels', 'Full colour (levels)', 'linear-gradient(90deg,red,lime,blue)']); return o; }
+  function palOptions() { var o = Object.keys(PixFX.PALETTES).map(function (k) { return [k, PixFX.PALETTES[k].name, 'linear-gradient(90deg,' + PixFX.PALETTES[k].colors.join(',') + ')']; }); o.unshift(['inkpaper', 'Ink & paper', 'linear-gradient(90deg,#2a1240 50%,#fff 50%)']); o.push(['custom', 'My colours', 'conic-gradient(#ff3fc8,#38c8ff,#ffe14d,#ff3fc8)']); o.push(['levels', 'Full colour (levels)', 'linear-gradient(90deg,red,lime,blue)']); return o; }
   var DEF = {};
+  var DITHER_PRESETS = [
+    ['Gameboy', { mode: 'diffusion', algo: 'atkinson', palette: 'gameboy', scale: 3, contrast: 20 }],
+    ['Newspaper', { mode: 'halftone', shape: 'dot', colorMode: 'mono', cell: 9, angle: 45, dotScale: 110, ink: '#141414', paper: '#f3eee2', contrast: 15 }],
+    ['Comic print', { mode: 'halftone', shape: 'dot', colorMode: 'cmyk', cell: 12, angle: 45, dotScale: 105, paper: '#fff8e8', contrast: 20 }],
+    ['Riso pink', { mode: 'ordered', pattern: 'dot', cell: 8, angle: 30, palette: 'inkpaper', ink: '#ff3fc8', paper: '#fff4fb', scale: 1 }],
+    ['1-bit Mac', { mode: 'diffusion', algo: 'atkinson', palette: '1bit', scale: 2, contrast: 25 }],
+    ['Heart print', { mode: 'halftone', shape: 'heart', colorMode: 'color', cell: 16, dotScale: 120, paper: '#ffffff', angle: 0 }],
+    ['Engraving', { mode: 'ordered', pattern: 'lines', cell: 6, angle: 35, palette: 'inkpaper', ink: '#1b1033', paper: '#f5f0ff', scale: 1, contrast: 25 }],
+    ['Vapor Bayer', { mode: 'ordered', pattern: 'bayer8', cell: 8, palette: 'vapor', scale: 3 }],
+    ['Star dust', { mode: 'halftone', shape: 'star', colorMode: 'mono', ink: '#ffe14d', paper: '#1a0533', cell: 14, dotScale: 130, angle: 0 }],
+    ['CMYK dots', { mode: 'halftone', shape: 'dot', colorMode: 'cmyk', cell: 7, dotScale: 100, angle: 45, paper: '#ffffff' }]
+  ];
   DEF.dither = {
-    defaults: { algo: 'atkinson', palette: 'sul', c1: '#120822', c2: '#ff3fc8', c3: '#38c8ff', c4: '#ffffff', ncol: 2, levels: 3, scale: 2, strength: 100, serpentine: true, brightness: 0, contrast: 10 },
+    defaults: { mode: 'diffusion', algo: 'atkinson', pattern: 'bayer8', shape: 'dot', cell: 8, angle: 45, dotScale: 100, colorMode: 'mono', palette: 'sul', ncol: 2, c1: '#120822', c2: '#ff3fc8', c3: '#38c8ff', c4: '#ffffff', c5: '#ffe14d', c6: '#8a3cff', c7: '#5cffc1', c8: '#ff7a3c', ink: '#2a1240', paper: '#ffffff', levels: 3, scale: 2, strength: 100, serpentine: true, brightness: 0, contrast: 10, gamma: 100, saturation: 0, invert: false, mix: 100 },
     controls: function () {
+      var M = function (m) { return function (s) { return s.mode === m; }; }, notHT = function (s) { return s.mode !== 'halftone'; };
+      var cdefs = [];
+      for (var i = 1; i <= 8; i++) (function (i) { cdefs.push({ k: 'c' + i, label: 'Colour ' + i, type: 'color', show: function (s) { return notHT(s) && s.palette === 'custom' && s.ncol >= i; } }); })(i);
       return [
-        { type: 'head', label: 'Pattern' },
-        { k: 'algo', label: 'Dither pattern', type: 'chips', scroll: true, options: PixFX.DITHER_ALGOS },
+        { type: 'head', label: 'Type' },
+        { k: 'mode', label: 'Dither type', type: 'chips', options: [['diffusion', '▦ Error diffusion'], ['ordered', '◫ Pattern'], ['halftone', '● Halftone']] },
+        { k: 'algo', label: 'Algorithm', type: 'chips', scroll: true, options: PixFX.DIFFUSION_LIST, show: M('diffusion') },
+        { k: 'pattern', label: 'Pattern shape', type: 'chips', scroll: true, options: PixFX.ORDERED_LIST, show: M('ordered') },
+        { k: 'shape', label: 'Halftone shape', type: 'chips', scroll: true, options: PixFX.SHAPE_LIST, show: M('halftone') },
+        { k: 'colorMode', label: 'Halftone colour', type: 'chips', options: [['mono', 'Ink on paper'], ['color', 'Original colours'], ['cmyk', 'CMYK print'], ['rgb', 'RGB screen']], show: M('halftone') },
+        { type: 'head', label: 'Size' },
+        { k: 'scale', label: 'Pixel size', type: 'range', min: 1, max: 32, unit: 'px', show: notHT, help: 'How chunky each pixel is.' },
+        { k: 'cell', label: 'Pattern / dot size', type: 'range', min: 2, max: 60, unit: 'px', show: function (s) { return s.mode !== 'diffusion'; } },
+        { k: 'dotScale', label: 'Dot fullness', type: 'range', min: 30, max: 170, unit: '%', show: M('halftone') },
+        { k: 'angle', label: 'Angle', type: 'range', min: -90, max: 180, unit: '°', show: function (s) { return s.mode === 'halftone' || (s.mode === 'ordered' && !/^bayer/.test(s.pattern)); } },
+        { k: 'strength', label: 'Dither strength', type: 'range', min: 0, max: 200, unit: '%', show: notHT },
+        { k: 'serpentine', label: 'Serpentine scan (smoother)', type: 'toggle', show: M('diffusion') },
         { type: 'head', label: 'Colours' },
-        { k: 'palette', label: 'Palette', type: 'chips', scroll: true, options: palOptions() },
-        { k: 'ncol', label: 'How many colours', type: 'range', min: 2, max: 4, show: function (s) { return s.palette === 'custom'; } },
-        { k: 'c1', label: 'Colour 1', type: 'color', show: function (s) { return s.palette === 'custom'; } },
-        { k: 'c2', label: 'Colour 2', type: 'color', show: function (s) { return s.palette === 'custom'; } },
-        { k: 'c3', label: 'Colour 3', type: 'color', show: function (s) { return s.palette === 'custom' && s.ncol >= 3; } },
-        { k: 'c4', label: 'Colour 4', type: 'color', show: function (s) { return s.palette === 'custom' && s.ncol >= 4; } },
-        { k: 'levels', label: 'Levels per channel', type: 'range', min: 2, max: 8, show: function (s) { return s.palette === 'levels'; } },
-        { type: 'head', label: 'Look' },
-        { k: 'scale', label: 'Pixel size', type: 'range', min: 1, max: 16, unit: 'px' },
-        { k: 'strength', label: 'Dither strength', type: 'range', min: 0, max: 150, unit: '%' },
+        { k: 'palette', label: 'Palette', type: 'chips', scroll: true, options: palOptions(), show: notHT },
+        { k: 'ncol', label: 'How many colours', type: 'range', min: 2, max: 8, show: function (s) { return notHT(s) && s.palette === 'custom'; } }
+      ].concat(cdefs, [
+        { k: 'levels', label: 'Levels per channel', type: 'range', min: 2, max: 8, show: function (s) { return notHT(s) && s.palette === 'levels'; } },
+        { k: 'ink', label: 'Ink colour', type: 'color', show: function (s) { return (s.mode === 'halftone' && s.colorMode === 'mono') || (notHT(s) && s.palette === 'inkpaper'); } },
+        { k: 'paper', label: 'Paper colour', type: 'color', show: function (s) { return (s.mode === 'halftone' && s.colorMode !== 'rgb') || (notHT(s) && s.palette === 'inkpaper'); } },
+        { type: 'head', label: 'Tone' },
         { k: 'brightness', label: 'Brightness', type: 'range', min: -100, max: 100 },
         { k: 'contrast', label: 'Contrast', type: 'range', min: -100, max: 100 },
-        { k: 'serpentine', label: 'Serpentine scan (smoother)', type: 'toggle' }
-      ];
+        { k: 'gamma', label: 'Shadows ↔ highlights (gamma)', type: 'range', min: 30, max: 300, unit: '%' },
+        { k: 'saturation', label: 'Saturation', type: 'range', min: -100, max: 100 },
+        { k: 'invert', label: 'Invert', type: 'toggle' },
+        { k: 'mix', label: 'Effect amount (mix with original)', type: 'range', min: 0, max: 100, unit: '%' }
+      ]);
     },
-    render: function (c, s) { return PixFX.dither(c, { algo: s.algo, palette: s.palette, colors: [s.c1, s.c2, s.c3, s.c4].slice(0, s.ncol), levels: s.levels, scale: s.scale, strength: s.strength / 100, serpentine: s.serpentine, brightness: s.brightness, contrast: s.contrast }); }
+    extra: function (box, st, change, ctx) {
+      box.parentNode.insertBefore(box, box.parentNode.firstChild);
+      box.innerHTML = '<div class="tc-head">Quick presets <small>then tweak</small></div><div class="tc-chips tc-scroll">' + DITHER_PRESETS.map(function (p, i) { return '<button type="button" class="tchip" data-pre="' + i + '">' + E(p[0]) + '</button>'; }).join('') + '</div>';
+      box.querySelectorAll('[data-pre]').forEach(function (b) { b.addEventListener('click', function () { var p = DITHER_PRESETS[+b.getAttribute('data-pre')][1]; Object.assign(st, DEF.dither.defaults, p); if (ctx.rebuild) ctx.rebuild(); }); });
+    },
+    render: function (c, s) {
+      return PixFX.dither2(c, { mode: s.mode, algo: s.algo, pattern: s.pattern, shape: s.shape, cell: s.cell, angle: s.angle, dotScale: s.dotScale, colorMode: s.colorMode, palette: s.palette, colors: [s.c1, s.c2, s.c3, s.c4, s.c5, s.c6, s.c7, s.c8].slice(0, s.ncol), ink: s.ink, paper: s.paper, levels: s.levels, scale: s.scale, strength: s.strength / 100, serpentine: s.serpentine, brightness: s.brightness, contrast: s.contrast, gamma: s.gamma / 100, saturation: s.saturation, invert: s.invert, mix: s.mix });
+    }
   };
   DEF.y2k = {
     defaults: { grade: 'bubblegum', title: 'SUL', titleColor: 'white', customTitle: '#ffffff', issue: 'ISSUE #01 · 2026', l1: 'NEW KIT OUT NOW', l2: 'cover art secrets', l3: '808 season', l4: '', l5: '', sticker: 'NEW ISSUE', stickerColor: '#ffe14d', accent: '#ff3fc8', frame: 'accent', halftone: 25, aberration: 40, grain: 25, ratio: 'mag', barcode: true },
@@ -306,8 +341,9 @@
     },
     extra: function (box, st, change, ctx) {
       var conf = ctx.cfg.tools || {}, list = [];
-      (conf.textures || []).forEach(function (t, i) { if (t && t.src) list.push({ id: 'u' + i, name: t.name || 'Texture ' + (i + 1), src: ctx.api.asset(t.src) }); });
-      if (conf.builtinTextures !== false) PixFX.BUILTIN_TEX.forEach(function (b) { list.push({ id: 'b:' + b[0], name: b[1], builtin: b[0] }); });
+      (conf.textures || []).forEach(function (t, i) { if (t && t.src && t.enabled !== false) list.push({ id: 'u' + i, name: t.name || 'Texture ' + (i + 1), src: ctx.api.asset(t.src) }); });
+      var hiddenTex = Array.isArray(conf.hiddenTextures) ? conf.hiddenTextures : [];
+      if (conf.builtinTextures !== false) PixFX.BUILTIN_TEX.forEach(function (b) { if (hiddenTex.indexOf(b[0]) < 0) list.push({ id: 'b:' + b[0], name: b[1], builtin: b[0] }); });
       box.innerHTML = '<div class="tc-head">Pick a texture</div><div class="tex-strip" role="listbox" aria-label="Textures"></div>' +
         (conf.allowUpload !== false ? '<button type="button" class="btn btn-sm btn-ghost tex-up">＋ USE MY OWN TEXTURE</button><input type="file" accept="image/*" hidden>' : '');
       var strip = box.querySelector('.tex-strip'), cache = {};
@@ -390,42 +426,66 @@
   /* =========================================================
      BACKGROUND REMOVER
      ========================================================= */
+  var TF_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1', BIREF = 'onnx-community/BiRefNet_lite-ONNX';
+  var PRO = { model: null, proc: null, T: null, device: '' };
   function bgTool(root, ctx) {
-    var S = { engine: 'ai', model: 'isnet_fp16', tol: 28, feather: 1, bg: 'clear', bgColor: '#ffffff', brush: 'erase', size: 40 };
-    var img = null, name = 'image', W = 0, H = 0, orig = null, mask = null, out = null, busy = false;
+    var S = { engine: 'pro', model: 'isnet_fp16', tol: 28, detail: 4, hardness: 15, grow: 0, feather: 0, specks: 25, holes: false, decon: true, view: 'result', bg: 'clear', bgColor: '#ffffff', brush: 'erase', smart: true, smartTol: 35, size: 40, zoom: 1 };
+    var refT = 0, name = 'image', W = 0, H = 0, PW = 0, PH = 0, orig = null, proc = null, procData = null, raw = null, refined = null, fin = null, decon = null, strokes = [], redo = [], busy = false;
     root.innerHTML =
       '<div class="tool-grid"><div class="tool-stage panel">' +
       '<div class="drop" tabindex="0" role="button"><input type="file" accept="image/*" hidden><div class="drop-ico">' + pixelIcon('bgremove') + '</div><strong>DROP A PICTURE HERE</strong><span>or click to choose · paste works too</span><small>Runs on your device — your picture is never uploaded</small></div>' +
-      '<div class="stage-view" hidden><div class="stage-canvas checker bg-stage"></div>' +
+      '<div class="stage-view" hidden>' +
+      '<div class="stage-bar bg-top"><button type="button" class="btn" data-go>✂ REMOVE BACKGROUND</button><span class="bg-views tc-chips"></span><span class="bg-zoom tc-chips"></span></div>' +
+      '<div class="stage-canvas checker bg-stage"></div>' +
       '<div class="progress" hidden><i></i><span></span></div>' +
-      '<div class="stage-bar"><button type="button" class="btn" data-go>✂ REMOVE BACKGROUND</button><button type="button" class="btn btn-sm btn-ghost" data-act="compare">◐ HOLD TO COMPARE</button><button type="button" class="btn btn-sm btn-ghost" data-new>⇪ NEW PICTURE</button><span class="stage-status" aria-live="polite"></span></div></div>' +
-      '</div><aside class="tool-side panel"><div class="tc-box"></div><div class="tc-head">Touch up <small>paint on the picture</small></div><div class="tc-brush"></div><div class="tc-head">Background</div><div class="tc-bg"></div>' +
-      '<div class="dl-row"><button type="button" class="btn" data-dl="png" disabled>⬇ PNG (transparent)</button><button type="button" class="btn btn-ghost" data-dl="jpg" disabled>JPG</button></div></aside></div>';
+      '<div class="stage-bar"><button type="button" class="btn btn-sm btn-ghost" data-act="compare">◐ HOLD TO COMPARE</button><button type="button" class="btn btn-sm btn-ghost" data-undo disabled>↶ UNDO</button><button type="button" class="btn btn-sm btn-ghost" data-redo disabled>↷ REDO</button><button type="button" class="btn btn-sm btn-ghost" data-new>⇪ NEW PICTURE</button><span class="stage-status" aria-live="polite"></span></div></div>' +
+      '</div><aside class="tool-side panel"><div class="tc-box"></div><div class="tc-head">Refine the cut-out <small>live</small></div><div class="tc-ref"></div><div class="tc-head">Touch up <small>paint on the picture</small></div><div class="tc-brush"></div><div class="tc-head">Background</div><div class="tc-bg"></div>' +
+      '<div class="dl-row"><button type="button" class="btn" data-dl="png" disabled>⬇ PNG (transparent)</button><button type="button" class="btn btn-ghost" data-dl="jpg" disabled>JPG</button><button type="button" class="btn btn-sm btn-ghost" data-dl="mask" disabled>MASK</button></div></aside></div>';
     var drop = root.querySelector('.drop'), fi = drop.querySelector('input'), view = root.querySelector('.stage-view'), holder = root.querySelector('.stage-canvas'), status = root.querySelector('.stage-status'), prog = root.querySelector('.progress');
     var disp = PixFX.mk(10, 10); disp.className = 'stage-img'; holder.appendChild(disp);
     function setStatus(t) { status.textContent = t || ''; }
     function setProg(f, label) { prog.hidden = f == null; if (f == null) return; prog.querySelector('i').style.width = Math.round(f * 100) + '%'; prog.querySelector('span').textContent = label || ''; }
     buildControls(root.querySelector('.tc-box'), [
-      { k: 'engine', label: 'Remover', type: 'chips', options: [['ai', 'AI (most accurate)'], ['quick', 'Quick (plain backgrounds)']] },
-      { k: 'model', label: 'AI quality', type: 'chips', options: [['isnet_quint8', 'Fast'], ['isnet_fp16', 'Accurate'], ['isnet', 'Max detail']], show: function (s) { return s.engine === 'ai'; }, help: 'First run downloads the AI model (≈40–170 MB, saved after that). Max detail is slowest.' },
-      { k: 'tol', label: 'Colour tolerance', type: 'range', min: 4, max: 90, show: function (s) { return s.engine === 'quick'; }, help: 'Works best with a plain or studio background.' },
-      { k: 'feather', label: 'Soften edge', type: 'range', min: 0, max: 8, unit: 'px' }
-    ], S, function (k) { if (k === 'feather' && mask) compose(); });
+      { k: 'engine', label: 'Remover', type: 'chips', options: [['pro', '★ AI Pro (most accurate)'], ['ai', 'AI Fast'], ['quick', 'Plain backgrounds']] },
+      { k: 'model', label: 'AI Fast quality', type: 'chips', options: [['isnet_quint8', 'Fast'], ['isnet_fp16', 'Good'], ['isnet', 'Best']], show: function (s) { return s.engine === 'ai'; } },
+      { k: 'tol', label: 'Colour tolerance', type: 'range', min: 4, max: 90, show: function (s) { return s.engine === 'quick'; }, help: 'For a plain or studio background.' }
+    ], S, function () { });
+    root.querySelector('.tc-box').insertAdjacentHTML('beforeend', '<small class="tc-help">AI Pro uses BiRefNet — great on hair, fur and fine detail. The first time it downloads the AI (≈115–225 MB, saved after that). With a good graphics card it takes a few seconds, otherwise up to a minute.</small>');
+    buildControls(root.querySelector('.tc-ref'), [
+      { k: 'detail', label: 'Edge detail (hair, fur)', type: 'range', min: 0, max: 10, help: 'Snaps the edge to the real edges in your photo.' },
+      { k: 'hardness', label: 'Edge hardness', type: 'range', min: 0, max: 100, unit: '%' },
+      { k: 'grow', label: 'Shrink ↔ grow edge', type: 'range', min: -15, max: 15, unit: 'px' },
+      { k: 'feather', label: 'Soften edge', type: 'range', min: 0, max: 10, unit: 'px' },
+      { k: 'specks', label: 'Remove leftover bits', type: 'range', min: 0, max: 100, unit: '%' },
+      { k: 'holes', label: 'Fill holes inside the subject', type: 'toggle' },
+      { k: 'decon', label: 'Clean edge colours (no halos)', type: 'toggle' }
+    ], S, function () { if (!raw) return; clearTimeout(refT); setStatus('refining…'); refT = setTimeout(refineAll, 160); });
     buildControls(root.querySelector('.tc-brush'), [
-      { k: 'brush', label: 'Brush', type: 'chips', options: [['erase', '✕ Erase more'], ['restore', '✚ Bring back']] },
-      { k: 'size', label: 'Brush size', type: 'range', min: 4, max: 200, unit: 'px' }
+      { k: 'brush', label: 'Brush', type: 'chips', options: [['erase', '✕ Erase'], ['restore', '✚ Bring back']] },
+      { k: 'smart', label: 'Smart brush (only paints similar colours — follows edges)', type: 'toggle' },
+      { k: 'smartTol', label: 'Smart brush tolerance', type: 'range', min: 5, max: 100, show: function (s) { return s.smart; } },
+      { k: 'size', label: 'Brush size', type: 'range', min: 4, max: 300, unit: 'px' }
     ], S, function () { });
     buildControls(root.querySelector('.tc-bg'), [
-      { k: 'bg', label: 'Fill behind', type: 'chips', options: [['clear', 'Transparent'], ['color', 'Colour'], ['blur', 'Blurred photo']] },
+      { k: 'bg', label: 'Fill behind', type: 'chips', options: [['clear', 'Transparent'], ['color', 'Colour'], ['blur', 'Blurred photo'], ['bw', 'B&W photo']] },
       { k: 'bgColor', label: 'Colour', type: 'color', show: function (s) { return s.bg === 'color'; } }
-    ], S, function () { if (mask) compose(); });
+    ], S, function () { draw(); });
+    var vb = root.querySelector('.bg-views'), zb = root.querySelector('.bg-zoom');
+    vb.innerHTML = [['result', 'Result'], ['overlay', 'Red overlay'], ['mask', 'Mask']].map(function (v) { return '<button type="button" class="tchip' + (v[0] === S.view ? ' is-on' : '') + '" data-view="' + v[0] + '">' + v[1] + '</button>'; }).join('');
+    zb.innerHTML = [1, 2, 3, 4].map(function (z) { return '<button type="button" class="tchip' + (z === 1 ? ' is-on' : '') + '" data-zoom="' + z + '">' + z + '×</button>'; }).join('');
+    vb.querySelectorAll('[data-view]').forEach(function (b) { b.addEventListener('click', function () { S.view = b.getAttribute('data-view'); vb.querySelectorAll('.tchip').forEach(function (x) { x.classList.toggle('is-on', x === b); }); draw(); }); });
+    zb.querySelectorAll('[data-zoom]').forEach(function (b) { b.addEventListener('click', function () { S.zoom = +b.getAttribute('data-zoom'); zb.querySelectorAll('.tchip').forEach(function (x) { x.classList.toggle('is-on', x === b); }); holder.classList.toggle('zoomed', S.zoom > 1); disp.style.width = S.zoom > 1 ? (S.zoom * 100) + '%' : ''; }); });
     function enable(on) { root.querySelectorAll('[data-dl]').forEach(function (b) { b.disabled = !on; }); }
+    function undoBtns() { root.querySelector('[data-undo]').disabled = !strokes.length; root.querySelector('[data-redo]').disabled = !redo.length; }
+
     async function takeFile(f) {
       if (!f || !/^image\//.test(f.type || '') && !/\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(f.name || '')) { setStatus('⚠ That isn\'t a picture file'); return; }
-      img = await PixFX.loadImage(f).catch(function (e) { alert(e.message); return null; }); if (!img) return;
-      name = stem(f.name); orig = PixFX.toCanvas(img, 4096); W = orig.width; H = orig.height; mask = null; out = null;
-      disp.width = W; disp.height = H; disp.getContext('2d').drawImage(orig, 0, 0);
-      drop.hidden = true; view.hidden = false; enable(false); setStatus(W + ' × ' + H + ' px — press REMOVE BACKGROUND'); img.file = f;
+      var img = await PixFX.loadImage(f).catch(function (e) { alert(e.message); return null; }); if (!img) return;
+      name = stem(f.name); orig = PixFX.toCanvas(img, 4096); W = orig.width; H = orig.height;
+      proc = PixFX.toCanvas(orig, 2048); PW = proc.width; PH = proc.height; procData = proc.getContext('2d').getImageData(0, 0, PW, PH).data;
+      raw = refined = fin = decon = null; strokes = []; redo = []; undoBtns();
+      disp.width = PW; disp.height = PH; disp.getContext('2d').drawImage(proc, 0, 0);
+      drop.hidden = true; view.hidden = false; enable(false); setStatus(W + ' × ' + H + ' px — press REMOVE BACKGROUND');
     }
     drop.addEventListener('click', function () { fi.click(); });
     drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.click(); } });
@@ -435,89 +495,157 @@
     ctx.on(window, 'paste', function (e) { var it = [].slice.call((e.clipboardData || {}).items || []).filter(function (i) { return /^image\//.test(i.type); })[0]; if (it) takeFile(it.getAsFile()); });
 
     root.querySelector('[data-go]').addEventListener('click', async function () {
-      if (!orig || busy) return;
-      busy = true; this.disabled = true; enable(false);
-      try {
-        if (S.engine === 'ai') await aiRemove(); else quickRemove();
-        compose(); enable(true); setStatus('Done ✓ — paint to touch up, then download'); ctx.api.burst(innerWidth / 2, innerHeight / 2, 24);
-      } catch (e) {
-        console.error(e);
-        setStatus('');
-        var msg = 'The AI remover could not start (' + (e.message || e) + '). This usually means the download was blocked or your browser is too old. Switching to Quick mode instead.';
-        if (S.engine === 'ai') { alert(msg); S.engine = 'quick'; root.querySelector('.tc-box .tchip[data-val=quick]').click(); quickRemove(); compose(); enable(true); setStatus('Quick mode result — touch up with the brush'); }
-        else alert(e.message || e);
+      if (!proc || busy) return;
+      var btn = this; busy = true; btn.disabled = true; enable(false);
+      var order = S.engine === 'pro' ? ['pro', 'ai', 'quick'] : S.engine === 'ai' ? ['ai', 'quick'] : ['quick'], used = null, errs = [];
+      for (var i = 0; i < order.length && !used; i++) {
+        try {
+          if (order[i] === 'pro') raw = await runPro(); else if (order[i] === 'ai') raw = await runImgly(); else raw = quickMask();
+          used = order[i];
+        } catch (e) { console.error(e); errs.push((order[i] === 'pro' ? 'AI Pro' : order[i] === 'ai' ? 'AI Fast' : 'Quick') + ': ' + (e && e.message || e)); }
       }
-      setProg(null); busy = false; this.disabled = false;
+      setProg(null);
+      if (used) {
+        strokes = []; redo = []; undoBtns(); refineAll(); enable(true);
+        setStatus((used === S.engine ? 'Done ✓' : 'Done with ' + (used === 'ai' ? 'AI Fast' : 'Plain-background mode') + ' (the better AI couldn\'t start)') + ' — refine or paint to touch up');
+        if (used !== S.engine) alert('The ' + (S.engine === 'pro' ? 'AI Pro' : 'AI Fast') + ' remover couldn\'t start, so a simpler one was used.\n\n' + errs.join('\n') + '\n\nThis usually means the download was blocked, the browser is old, or the device ran out of memory. Try again on Wi-Fi or in Chrome/Edge.');
+        ctx.api.burst(innerWidth / 2, innerHeight / 2, 24);
+      } else alert('Couldn\'t remove the background:\n' + errs.join('\n'));
+      busy = false; btn.disabled = false;
     });
-    async function aiRemove() {
-      setProg(0, 'Loading AI…'); setStatus('');
+    async function runPro() {
+      setProg(0.01, 'Loading AI Pro…');
+      if (!PRO.T) { PRO.T = await import(TF_URL); PRO.T.env.allowLocalModels = false; }
+      var T = PRO.T, files = {};
+      function onProg(e) { if (e && e.status === 'progress' && e.total) { files[e.file] = [e.loaded, e.total]; var l = 0, t = 0; Object.keys(files).forEach(function (k) { l += files[k][0]; t += files[k][1]; }); setProg(l / t * 0.9, 'Downloading AI model (first time only)… ' + Math.round(l / 1048576) + ' / ' + Math.round(t / 1048576) + ' MB'); } }
+      var tries = [];
+      if (navigator.gpu) tries.push(['webgpu', 'fp16'], ['webgpu', 'fp32']);
+      tries.push(['wasm', 'fp32']);
+      if (PRO.model) tries = [[PRO.device, PRO.dtype]].concat(tries.filter(function (t) { return t[0] !== PRO.device || t[1] !== PRO.dtype; }));
+      var last = null;
+      if (!PRO.proc) PRO.proc = await T.AutoProcessor.from_pretrained(BIREF);
+      var image = await T.RawImage.fromBlob(await canvasBlob(proc, 'image/png'));
+      var inp = await PRO.proc(image);
+      for (var i = 0; i < tries.length; i++) {
+        try {
+          if (!PRO.model || PRO.device !== tries[i][0] || PRO.dtype !== tries[i][1]) {
+            PRO.model = null;
+            PRO.model = await T.AutoModel.from_pretrained(BIREF, { device: tries[i][0], dtype: tries[i][1], progress_callback: onProg });
+            PRO.device = tries[i][0]; PRO.dtype = tries[i][1];
+          }
+          setProg(0.92, 'AI is cutting it out… (' + (PRO.device === 'webgpu' ? 'graphics card' : 'processor — can take a minute') + ')'); await tick();
+          var res = await PRO.model({ input_image: inp.pixel_values });
+          var outT = res.output_image || res[Object.keys(res)[0]];
+          var m = await T.RawImage.fromTensor(outT[0].sigmoid().mul(255).to('uint8'));
+          return rawFromGray(m.data, m.width, m.height, m.channels || 1);
+        } catch (e) { console.warn('BiRefNet attempt failed', tries[i], e); last = e; PRO.model = null; }
+      }
+      throw last || new Error('AI Pro failed');
+    }
+    function rawFromGray(d, w, h, ch) {
+      var c = PixFX.mk(w, h), g = c.getContext('2d'), id = g.createImageData(w, h);
+      for (var i = 0; i < w * h; i++) { var v = d[i * ch]; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
+      g.putImageData(id, 0, 0);
+      var big = PixFX.mk(PW, PH), bg = big.getContext('2d'); bg.imageSmoothingQuality = 'high'; bg.drawImage(c, 0, 0, PW, PH);
+      return PixFX.Mask.fromGray(big);
+    }
+    async function runImgly() {
+      setProg(0.01, 'Loading AI Fast…');
       var mod = await import(LIBS.bg);
       var fn = mod.removeBackground || (mod.default && mod.default.removeBackground) || mod.default;
-      var srcBlob = await canvasBlob(orig, 'image/png');
-      var blob = await fn(srcBlob, {
-        model: S.model, output: { format: 'image/png', type: 'foreground' },
+      var blob = await fn(await canvasBlob(proc, 'image/png'), {
+        model: S.model, output: { format: 'image/png', type: 'mask' },
         progress: function (key, cur, tot) { var f = tot ? cur / tot : 0; setProg(f, /fetch/.test(key) ? 'Downloading AI model… ' + Math.round(f * 100) + '%' : 'Working… ' + Math.round(f * 100) + '%'); }
       });
-      setProg(1, 'Finishing…');
-      var res = await PixFX.loadImage(blob), rc = PixFX.mk(W, H); rc.getContext('2d').drawImage(res, 0, 0, W, H);
-      var d = rc.getContext('2d').getImageData(0, 0, W, H).data;
-      mask = PixFX.mk(W, H); var mg = mask.getContext('2d'), md = mg.createImageData(W, H);
-      for (var i = 0; i < d.length; i += 4) { md.data[i] = md.data[i + 1] = md.data[i + 2] = 255; md.data[i + 3] = d[i + 3]; }
-      mg.putImageData(md, 0, 0);
+      var res = await PixFX.loadImage(blob), rc = PixFX.mk(PW, PH), g = rc.getContext('2d'); g.drawImage(res, 0, 0, PW, PH);
+      var d = g.getImageData(0, 0, PW, PH).data, a = new Float32Array(PW * PH), anyAlpha = false;
+      for (var i = 0; i < PW * PH; i++) if (d[i * 4 + 3] < 250) { anyAlpha = true; break; }
+      for (i = 0; i < PW * PH; i++) a[i] = anyAlpha ? d[i * 4 + 3] / 255 : d[i * 4] / 255;
+      return a;
     }
-    function quickRemove() {
-      // flood-fill from the border through pixels close to the border colours
-      var g = orig.getContext('2d'), d = g.getImageData(0, 0, W, H).data, N = W * H, seen = new Uint8Array(N), q = new Int32Array(N), qh = 0, qt = 0;
-      var tol = S.tol * S.tol * 3, samples = [], x, y, i;
-      function push(p) { if (!seen[p]) { seen[p] = 1; q[qt++] = p; } }
-      for (x = 0; x < W; x += Math.max(1, W >> 6)) { samples.push(x); samples.push((H - 1) * W + x); }
-      for (y = 0; y < H; y += Math.max(1, H >> 6)) { samples.push(y * W); samples.push(y * W + W - 1); }
-      var cols = samples.map(function (p) { return [d[p * 4], d[p * 4 + 1], d[p * 4 + 2]]; });
-      function near(p) { var r = d[p * 4], gg = d[p * 4 + 1], b = d[p * 4 + 2]; if (d[p * 4 + 3] < 20) return true; for (var k = 0; k < cols.length; k++) { var c = cols[k], dr = r - c[0], dg = gg - c[1], db = b - c[2]; if (dr * dr + dg * dg + db * db < tol) return true; } return false; }
-      for (x = 0; x < W; x++) { if (near(x)) push(x); if (near((H - 1) * W + x)) push((H - 1) * W + x); }
-      for (y = 0; y < H; y++) { if (near(y * W)) push(y * W); if (near(y * W + W - 1)) push(y * W + W - 1); }
-      while (qh < qt) {
-        var p = q[qh++]; x = p % W; y = (p / W) | 0;
-        if (x > 0 && !seen[p - 1] && near(p - 1)) push(p - 1);
-        if (x < W - 1 && !seen[p + 1] && near(p + 1)) push(p + 1);
-        if (y > 0 && !seen[p - W] && near(p - W)) push(p - W);
-        if (y < H - 1 && !seen[p + W] && near(p + W)) push(p + W);
+    function quickMask() {
+      var d = procData, w = PW, h = PH, N = w * h, seen = new Uint8Array(N), q = new Int32Array(N), qh = 0, qt = 0, x, y, i;
+      var tol = S.tol * S.tol * 3, cols = [];
+      for (x = 0; x < w; x += Math.max(1, w >> 6)) { cols.push(x); cols.push((h - 1) * w + x); }
+      for (y = 0; y < h; y += Math.max(1, h >> 6)) { cols.push(y * w); cols.push(y * w + w - 1); }
+      cols = cols.map(function (p) { return [d[p * 4], d[p * 4 + 1], d[p * 4 + 2]]; });
+      function near(p) { if (d[p * 4 + 3] < 20) return true; var r = d[p * 4], g = d[p * 4 + 1], b = d[p * 4 + 2]; for (var k = 0; k < cols.length; k++) { var c = cols[k], dr = r - c[0], dg = g - c[1], db = b - c[2]; if (dr * dr + dg * dg + db * db < tol) return true; } return false; }
+      function push(p) { if (!seen[p] && near(p)) { seen[p] = 1; q[qt++] = p; } }
+      for (x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+      for (y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+      while (qh < qt) { var p = q[qh++]; x = p % w; y = (p / w) | 0; if (x > 0) push(p - 1); if (x < w - 1) push(p + 1); if (y > 0) push(p - w); if (y < h - 1) push(p + w); }
+      var a = new Float32Array(N); for (i = 0; i < N; i++) a[i] = seen[i] ? 0 : 1;
+      return PixFX.Mask.box(a, w, h, 1);
+    }
+    // ---- refine → strokes → draw ----
+    function refineAll() {
+      setStatus('refining…');
+      refined = PixFX.Mask.refine(raw, proc, PW, PH, { detail: S.detail, hardness: S.hardness, grow: S.grow, feather: S.feather, specks: S.specks, holes: S.holes });
+      replay(); setStatus('✓ ready');
+    }
+    function replay() { fin = refined.slice(); strokes.forEach(function (st) { applyStroke(st, 0); }); finish(); }
+    function finish() { decon = S.decon ? PixFX.Mask.decontaminate(proc, fin, PW, PH) : null; draw(); }
+    function applyStroke(st, from) { for (var i = from; i < st.pts.length; i++) { var p = st.pts[i], q = i ? st.pts[i - 1] : p, dist = Math.hypot(p[0] - q[0], p[1] - q[1]), n = Math.max(1, Math.ceil(dist / Math.max(1, st.r / 3))); for (var k = 1; k <= n; k++) dab(st, q[0] + (p[0] - q[0]) * k / n, q[1] + (p[1] - q[1]) * k / n); } }
+    function dab(st, cx, cy) {
+      var r = st.r, x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(PW - 1, Math.ceil(cx + r)), y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(PH - 1, Math.ceil(cy + r)), t2 = st.tol * st.tol * 3;
+      for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) {
+        var dd = Math.hypot(x - cx, y - cy); if (dd > r) continue;
+        var w = Math.min(1, (r - dd) / Math.max(1, r * 0.3)), i = y * PW + x;
+        if (st.smart) { var j = i * 4, dr = procData[j] - st.seed[0], dg = procData[j + 1] - st.seed[1], db = procData[j + 2] - st.seed[2], cd = dr * dr + dg * dg + db * db; if (cd > t2 * 2.25) continue; if (cd > t2) w *= 1 - (cd - t2) / (t2 * 1.25); }
+        if (st.mode === 'restore') fin[i] = Math.max(fin[i], w); else fin[i] = Math.min(fin[i], 1 - w);
       }
-      mask = PixFX.mk(W, H); var mg = mask.getContext('2d'), md = mg.createImageData(W, H);
-      for (i = 0; i < N; i++) { md.data[i * 4] = md.data[i * 4 + 1] = md.data[i * 4 + 2] = 255; md.data[i * 4 + 3] = seen[i] ? 0 : 255; }
-      mg.putImageData(md, 0, 0);
-      var soft = PixFX.blur(mask, 1.5); mg.clearRect(0, 0, W, H); mg.drawImage(soft, 0, 0);
     }
-    function compose() {
-      out = PixFX.mk(W, H); var g = out.getContext('2d');
-      var m = S.feather > 0 ? PixFX.blur(mask, S.feather * 2) : mask;
-      g.drawImage(orig, 0, 0); g.globalCompositeOperation = 'destination-in'; g.drawImage(m, 0, 0); g.globalCompositeOperation = 'source-over';
-      var dg = disp.getContext('2d'); disp.width = W; disp.height = H;
-      if (S.bg === 'color') { dg.fillStyle = S.bgColor; dg.fillRect(0, 0, W, H); }
-      else if (S.bg === 'blur') dg.drawImage(PixFX.blur(PixFX.adjust(orig, { brightness: -10 }), Math.max(6, W / 80)), 0, 0);
-      dg.drawImage(out, 0, 0);
+    function cutout(target, tw, th, srcImg) { // draws the cut-out subject onto target
+      var g = target.getContext('2d'), c = PixFX.mk(tw, th), cg = c.getContext('2d');
+      cg.imageSmoothingQuality = 'high'; cg.drawImage(srcImg, 0, 0, tw, th);
+      if (decon) cg.drawImage(decon, 0, 0, tw, th);
+      cg.globalCompositeOperation = 'destination-in'; cg.drawImage(PixFX.Mask.toCanvas(fin, PW, PH), 0, 0, tw, th);
+      g.drawImage(c, 0, 0);
     }
-    // brush touch-up on the mask
-    var painting = false, last = null;
-    function pos(e) { var r = disp.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height, W / r.width]; }
-    function dab(p) {
-      var g = mask.getContext('2d'), rad = S.size / 2 * p[2];
-      g.globalCompositeOperation = S.brush === 'erase' ? 'destination-out' : 'source-over'; g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineWidth = rad * 2;
-      if (last) { g.beginPath(); g.moveTo(last[0], last[1]); g.lineTo(p[0], p[1]); g.stroke(); }
-      g.beginPath(); g.arc(p[0], p[1], rad, 0, 6.3); g.fill(); g.globalCompositeOperation = 'source-over'; last = p;
+    function fillBg(target, tw, th, srcImg) {
+      var g = target.getContext('2d');
+      if (S.bg === 'color') { g.fillStyle = S.bgColor; g.fillRect(0, 0, tw, th); }
+      else if (S.bg === 'blur') g.drawImage(PixFX.blur(PixFX.adjust(PixFX.toCanvas(srcImg, 1400), { brightness: -8 }), 14), 0, 0, tw, th);
+      else if (S.bg === 'bw') g.drawImage(PixFX.adjust(PixFX.toCanvas(srcImg, 2048), { saturation: -100, contrast: 10 }), 0, 0, tw, th);
     }
-    disp.addEventListener('pointerdown', function (e) { if (!mask) return; painting = true; last = null; disp.setPointerCapture(e.pointerId); dab(pos(e)); compose(); });
-    disp.addEventListener('pointermove', function (e) { if (!painting) return; dab(pos(e)); compose(); });
-    ['pointerup', 'pointercancel'].forEach(function (ev) { disp.addEventListener(ev, function () { painting = false; last = null; }); });
+    function draw() {
+      if (!fin) return;
+      var g = disp.getContext('2d'); g.clearRect(0, 0, PW, PH);
+      if (S.view === 'mask') { g.fillStyle = '#000'; g.fillRect(0, 0, PW, PH); g.drawImage(PixFX.Mask.toCanvas(fin, PW, PH), 0, 0); return; }
+      if (S.view === 'overlay') {
+        g.drawImage(proc, 0, 0);
+        var red = PixFX.mk(PW, PH), rg = red.getContext('2d'); rg.fillStyle = 'rgba(255,30,90,.6)'; rg.fillRect(0, 0, PW, PH); rg.globalCompositeOperation = 'destination-out'; rg.drawImage(PixFX.Mask.toCanvas(fin, PW, PH), 0, 0);
+        g.drawImage(red, 0, 0); return;
+      }
+      fillBg(disp, PW, PH, proc); cutout(disp, PW, PH, proc);
+    }
+    // ---- brush ----
+    var cur = null, rafP = 0;
+    function pos(e) { var r = disp.getBoundingClientRect(); return [(e.clientX - r.left) * PW / r.width, (e.clientY - r.top) * PH / r.height, PW / r.width]; }
+    disp.addEventListener('pointerdown', function (e) {
+      if (!fin) return; e.preventDefault();
+      var p = pos(e), j = (Math.min(PH - 1, Math.max(0, Math.round(p[1]))) * PW + Math.min(PW - 1, Math.max(0, Math.round(p[0])))) * 4;
+      cur = { mode: S.brush, smart: S.smart, tol: S.smartTol, r: S.size / 2 * p[2], seed: [procData[j], procData[j + 1], procData[j + 2]], pts: [[p[0], p[1]]] };
+      disp.setPointerCapture(e.pointerId); applyStroke(cur, 0); draw();
+    });
+    disp.addEventListener('pointermove', function (e) {
+      if (!cur) return; var p = pos(e); cur.pts.push([p[0], p[1]]); applyStroke(cur, cur.pts.length - 1);
+      if (!rafP) rafP = requestAnimationFrame(function () { rafP = 0; draw(); });
+    });
+    ['pointerup', 'pointercancel'].forEach(function (ev) { disp.addEventListener(ev, function () { if (!cur) return; strokes.push(cur); redo = []; cur = null; undoBtns(); finish(); }); });
+    root.querySelector('[data-undo]').addEventListener('click', function () { if (!strokes.length) return; redo.push(strokes.pop()); undoBtns(); replay(); });
+    root.querySelector('[data-redo]').addEventListener('click', function () { if (!redo.length) return; strokes.push(redo.pop()); undoBtns(); replay(); });
+    ctx.on(window, 'keydown', function (e) { if (!fin || !(e.ctrlKey || e.metaKey) || /input|select|textarea/i.test((e.target || {}).tagName || '')) return; var k = e.key.toLowerCase(); if (k === 'z' && !e.shiftKey) { e.preventDefault(); root.querySelector('[data-undo]').click(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); root.querySelector('[data-redo]').click(); } });
     var cmp = root.querySelector('[data-act=compare]');
-    cmp.addEventListener('pointerdown', function () { if (orig) { var g = disp.getContext('2d'); g.clearRect(0, 0, W, H); g.drawImage(orig, 0, 0); } });
-    ['pointerup', 'pointerleave'].forEach(function (ev) { cmp.addEventListener(ev, function () { if (mask) compose(); }); });
+    cmp.addEventListener('pointerdown', function () { if (proc) { var g = disp.getContext('2d'); g.clearRect(0, 0, PW, PH); g.drawImage(proc, 0, 0); } });
+    ['pointerup', 'pointerleave'].forEach(function (ev) { cmp.addEventListener(ev, function () { draw(); }); });
     root.querySelectorAll('[data-dl]').forEach(function (b) {
       b.addEventListener('click', async function () {
-        if (!out) return;
+        if (!fin) return;
         var t = b.getAttribute('data-dl'), c = PixFX.mk(W, H), g = c.getContext('2d');
+        if (t === 'mask') { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.imageSmoothingQuality = 'high'; g.drawImage(PixFX.Mask.toCanvas(fin, PW, PH), 0, 0, W, H); return download(await canvasBlob(c, 'image/png'), name + '-mask.png'); }
         if (t === 'jpg' && S.bg === 'clear') { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); }
-        g.drawImage(disp, 0, 0);
+        fillBg(c, W, H, orig); cutout(c, W, H, orig);
         download(await canvasBlob(c, t === 'png' ? 'image/png' : 'image/jpeg', 0.95), name + '-nobg.' + t);
       });
     });

@@ -90,6 +90,10 @@ Your design lives in **`content/site.json`** and your files in **`uploads/`**. E
 - Admin: a new **🛠 Tools** tab (show or hide tools, rename them, change icons, reorder them, upload textures) and a **Tools** section type you can put on any page.
 - All tools run in the visitor's browser and nothing gets uploaded. The AI background remover (@imgly/background-removal) and the MP3 encoder (lamejs) are free open-source libraries that load from jsdelivr.net the first time someone uses them.
 
+### v3.2
+- **Dither Lab** now has three types: error diffusion, patterns and halftone. Patterns and halftone dots come in 14 shapes (dots, squares, diamonds, lines, crosses, rings, stars, hearts, triangles, waves, checker and more). You can set pixel size, pattern/dot size, dot fullness and angle, use up to 8 of your own colours or ink & paper, and pick CMYK, RGB or original-colour halftones. There are also tone controls and 10 one-click presets.
+- **BG Remover**: the new AI Pro engine uses BiRefNet (MIT licence, loaded with transformers.js), which handles hair and fine detail. If AI Pro can't start it falls back to AI Fast, then to plain-background mode. New refine controls: edge detail (a guided filter), hardness, shrink/grow, soften, remove leftover bits, fill holes and clean edge colours. There's also a smart edge-following brush, undo/redo, zoom up to 4×, result, red-overlay and mask views, extra background fills and a mask download.
+
 ## Custom domain (sul4ever.xyz)
 The `CNAME` file tells GitHub Pages to serve the site at **sul4ever.xyz**. After uploading it:
 1. In the repo, go to **Settings → Pages → Custom domain**, enter `sul4ever.xyz` and press Save.
