@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "meta": {
     "title": "SUL0557 — Drum Kits, Cover Art & Edits",
     "description": "Hi I'm Sul and I make beats & visuals. Drum kits, cover art and edits.",
@@ -45,7 +45,10 @@
     "contentWidth": 1180,
     "pixelBorder": 3,
     "scale": 70,
-    "scaleMobile": 100
+    "scaleMobile": 100,
+    "look": "arcade",
+    "goButtonImageHeight": 28,
+    "goButtonImage": ""
   },
   "background": {
     "type": "image",
@@ -164,7 +167,8 @@
               "text": "▶ ENTER STORE",
               "link": "#/kits",
               "style": "primary",
-              "newTab": false
+              "newTab": false,
+              "imageHeight": 68
             }
           ],
           "showSearch": false,
@@ -173,7 +177,8 @@
           "showReviews": false,
           "fullHeight": true,
           "align": "left",
-          "width": "normal"
+          "width": "normal",
+          "artSize": 49
         },
         {
           "id": "s-reviews",
@@ -186,20 +191,31 @@
         {
           "id": "s-kits-feat",
           "type": "kits",
-          "visible": true,
-          "title": "PRODUCTS",
+          "visible": false,
+          "title": "KITS",
           "subtitle": "",
-          "style": "plain",
+          "style": "box",
           "filter": "featured",
           "limit": 0,
-          "columns": 3,
+          "columns": 2,
           "showSearch": true,
           "moreText": "SEE ALL KITS ▶",
           "moreLink": "#/kits",
           "more2Text": "",
           "more2Link": "",
           "moreStyle": "top",
-          "align": "left"
+          "align": "left",
+          "scale": 80
+        },
+        {
+          "id": "s-pqrrbr5pe",
+          "type": "tools",
+          "visible": true,
+          "align": "left",
+          "title": "CREATIVE {TOOLS}",
+          "subtitle": "Free tools — dither, Y2K covers, glow, textures, background remover & more",
+          "style": "icons",
+          "showDesc": false
         },
         {
           "id": "s-gal-feat",
@@ -295,7 +311,7 @@
           "id": "s-kits-head",
           "type": "text",
           "visible": true,
-          "title": "ITEM {SHOP}",
+          "title": "KIT {SHOP}",
           "text": "ALL OF SUL KIT'S ARE HERE.",
           "align": "left",
           "size": "large",
@@ -430,6 +446,34 @@
           "align": "left",
           "title": "",
           "subtitle": ""
+        }
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "TOOLS",
+      "inNav": true,
+      "icon": "star",
+      "sections": [
+        {
+          "id": "s-hb0ank5pe",
+          "type": "text",
+          "visible": true,
+          "align": "left",
+          "title": "CREATIVE {TOOLS}",
+          "text": "Free tools for your art and sounds — pick one ✦ Everything runs in your browser.",
+          "size": "normal",
+          "buttons": []
+        },
+        {
+          "id": "s-4zvbhs5pe",
+          "type": "tools",
+          "visible": true,
+          "align": "left",
+          "title": "",
+          "subtitle": "",
+          "style": "tiles",
+          "showDesc": true
         }
       ]
     }
@@ -742,9 +786,9 @@
     "v": 1,
     "salt": "a3AyobELUmPvGW7z2Jps+Q==",
     "iter": 310000,
-    "iv": "QrbybEfNichtEmFC",
-    "ct": "2wcj4xAYDLXJrBegeq3CqzD1KfsPH8WlCPb+C8ZeyONEVxroQQXD9PAi+z8/o43GrS0prdoj2WR6OdYFs2FOe15Rbmc5OTkojn0=",
-    "t": 1794945863945
+    "iv": "UEIk0DLVaRCC9nGV",
+    "ct": "iklNp87UmhuQp7dU9VbjMSJU5YfYyvUXCxeekAv2f6c99lmFCSeWDLMB4YcydZyxfH2KBo/7IbmrjThJsDZViw==",
+    "t": 1795193408312
   },
   "music": {
     "tracks": [
@@ -765,15 +809,75 @@
   "icons": {},
   "game": {
     "images": [],
-    "title": "PIXEL CONNECT",
+    "title": "PICTURE CONNECT",
     "minPieces": 6,
     "maxPieces": 20,
     "pixelate": true,
     "pixelBlock": 6,
     "sound": true,
     "showGhost": true,
-    "winTitle": "YOU WIN!",
+    "winTitle": "YOU WON!",
     "winText": "Puzzle complete ✦"
   },
-  "popups": []
+  "popups": [
+    {
+      "enabled": true,
+      "tag": "UPDATE",
+      "title": "{NEW KIT} ON THE WAY!",
+      "text": "KIT WITH @vorty.wav",
+      "image": "",
+      "embed": "",
+      "buttons": [],
+      "frequency": "once",
+      "delay": 1,
+      "position": "center",
+      "page": "home",
+      "start": "",
+      "end": "",
+      "id": "o-58rc97z6n"
+    }
+  ],
+  "tools": {
+    "items": {
+      "dither": {
+        "id": "dither"
+      },
+      "y2k": {
+        "id": "y2k",
+        "enabled": false
+      },
+      "glow": {
+        "id": "glow"
+      },
+      "texture": {
+        "id": "texture"
+      },
+      "fx": {
+        "id": "fx"
+      },
+      "bgremove": {
+        "id": "bgremove"
+      },
+      "convert": {
+        "id": "convert"
+      },
+      "rename": {
+        "id": "rename"
+      }
+    },
+    "order": [
+      "dither",
+      "y2k",
+      "glow",
+      "texture",
+      "fx",
+      "bgremove",
+      "convert",
+      "rename"
+    ],
+    "textures": [],
+    "builtinTextures": true,
+    "allowUpload": true,
+    "hiddenTextures": []
+  }
 }
