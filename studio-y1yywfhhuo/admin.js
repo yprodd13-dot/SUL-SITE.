@@ -210,7 +210,11 @@
   /* ================= state / history / sync ================= */
   function normalize(c) {
     c = c && typeof c === 'object' ? c : {};
-    ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement', 'music', 'icons', 'game'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
+    ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement', 'music', 'icons', 'game', 'tools'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
+    if (!c.tools.items || typeof c.tools.items !== 'object' || Array.isArray(c.tools.items)) c.tools.items = {};
+    if (!Array.isArray(c.tools.order)) c.tools.order = [];
+    if (!Array.isArray(c.tools.textures)) c.tools.textures = [];
+    c.tools.textures.forEach(function (t) { if (!t.id) t.id = uid('tx'); });
     ['socials', 'pages', 'kits', 'galleryCategories', 'gallery', 'reviews', 'popups'].forEach(function (k) { if (!Array.isArray(c[k])) c[k] = []; });
     if (!Array.isArray(c.music.tracks)) c.music.tracks = [];
     if (!Array.isArray(c.game.images)) c.game.images = [];
@@ -600,7 +604,7 @@
           el('button', { type: 'button', title: 'Move up', text: '▲', onclick: function (e) { e.stopPropagation(); move(idx, -1); } }),
           el('button', { type: 'button', title: 'Move down', text: '▼', onclick: function (e) { e.stopPropagation(); move(idx, 1); } }),
           o.noDup ? null : el('button', { type: 'button', title: 'Duplicate', text: '⧉', onclick: function (e) { e.stopPropagation(); dup(idx); } }),
-          el('button', { type: 'button', class: 'del', title: 'Delete', text: '🗑', onclick: function (e) { e.stopPropagation(); del(idx); } }));
+          o.noDel ? null : el('button', { type: 'button', class: 'del', title: 'Delete', text: '🗑', onclick: function (e) { e.stopPropagation(); del(idx); } }));
         var grip = el('span', { class: 'grip', title: 'Drag to reorder', text: '⠿' });
         var hd = el('div', { class: 'item-head', role: 'button', tabindex: '0', 'aria-expanded': String(!!S.open[key]) }, grip, mini, el('div', { class: 't' }, tEl, sEl), tools, el('span', { class: 'chev', text: '›' }));
         var body = el('div', { class: 'item-body' });
@@ -708,6 +712,7 @@
     links: { label: 'Link buttons list', icon: '🔗', desc: 'Stack of big buttons (link-in-bio style).' },
     embed: { label: 'Embed (players, videos…)', icon: '⧉', desc: 'Paste embed code or a link: YouTube, Spotify, SoundCloud, Bandcamp, untitled…' },
     game: { label: 'PIXEL CONNECT game', icon: '🎮', desc: 'Your pixel puzzle game (settings in 🎮 PIXEL CONNECT).' },
+    tools: { label: 'Tools (icon grid)', icon: '🛠', desc: 'Your creative tools — each icon opens its own tool page (settings in 🛠 Tools).' },
     spacer: { label: 'Empty space', icon: '↕', desc: 'Adds space between sections.' }
   };
   function newSection(type) {
@@ -728,6 +733,7 @@
       case 'spacer': Object.assign(s, { height: 60 }); break;
       case 'embed': Object.assign(s, { title: '', subtitle: '', code: '', mode: 'auto', height: 0, maxWidth: 900, cardImage: '', cardTitle: '', cardText: '', cardButton: '▶ LISTEN' }); break;
       case 'game': Object.assign(s, { title: '', subtitle: '' }); break;
+      case 'tools': Object.assign(s, { title: 'CREATIVE {TOOLS}', subtitle: 'Free tools — everything runs in your browser', style: 'tiles', showDesc: true }); break;
     }
     return s;
   }
@@ -846,6 +852,10 @@
     } else if (s.type === 'game') {
       F.push(group('PIXEL CONNECT', null, fText(s, 'title', 'Title above the game (optional)', { after: h, help: TITLE_HELP }), fText(s, 'subtitle', 'Subtitle'),
         el('div', { class: 'note', html: 'Pictures, piece counts and sounds are in <b>🎮 PIXEL CONNECT</b>.' })));
+    } else if (s.type === 'tools') {
+      F.push(group('Tools grid', null, fText(s, 'title', 'Title (optional)', { after: h, help: TITLE_HELP }), fText(s, 'subtitle', 'Subtitle'),
+        row(fSelect(s, 'style', 'Look', [['tiles', 'Tiles with text'], ['icons', 'Big icons (like an app screen)'], ['list', 'One per row']], { def: 'tiles', after: h }), fToggle(s, 'showDesc', 'Show short descriptions', { defOn: true })),
+        el('div', { class: 'note', html: 'Which tools show, their names, icons and the texture library are in <b>🛠 Tools</b>.' })));
     } else if (s.type === 'spacer') {
       F.push(group('Space', null, fRange(s, 'height', 'Height', { min: 0, max: 400, step: 5, def: 60, suffix: 'px', after: h })));
     }
@@ -869,6 +879,7 @@
     ['gallery', '🖼', 'Cover Arts & Edits'],
     ['reviews', '💬', 'Reviews'],
     ['game', '🎮', 'PIXEL CONNECT'],
+    ['tools', '🛠', 'Tools'],
     ['music', '🎵', 'Music Player'],
     ['popups', '🔔', 'Popups & Updates'],
     ['intro', '✨', 'Intro Page'],
@@ -1223,6 +1234,7 @@
       fRange(t, 'scale', 'On computers', { min: 50, max: 150, step: 5, def: 100, suffix: '%' }), sizeBtns('scale'),
       fRange(t, 'scaleMobile', 'On phones', { min: 50, max: 150, step: 5, def: 100, suffix: '%' }), sizeBtns('scaleMobile'),
       el('div', { class: 'note', html: 'To resize just one part, open it in <b>Pages & Layout</b> and use <b>Size of this section</b>. Logo size in the menu is in <b>Logo & Site Info</b>.' })));
+    add(E, group('Layout look', 'same colours, different style', fSelect(t, 'look', 'Style', [['arcade', 'Arcade (new: numbered sections, holo bars, tilted window)'], ['classic', 'Classic (the look before)']], { def: 'arcade' })));
     add(E, group('Quick themes', 'one click, then fine-tune below', el('div', { class: 'preset-grid' }, PRESETS.map(function (p) {
       return el('button', { class: 'preset', type: 'button', onclick: function () { Object.assign(S.cfg.theme, p.theme); Object.assign(S.cfg.background, p.bg); changed(); renderTab(); toast('Applied ' + p.name); } },
         el('div', { class: 'sw4' }, [p.bg.skyTop, p.theme.primary, p.theme.secondary, p.theme.accent].map(function (c) { return el('span', { style: 'background:' + c }); })), el('b', { text: p.name }));
@@ -1537,6 +1549,69 @@
       row(fToggle(g, 'showGhost', 'Show a faint guide picture on the board', { defOn: true }), fToggle(g, 'sound', '8-bit sound effects', { defOn: true }))));
     add(E, group('Text', null, fText(g, 'title', 'Game name', { ph: 'PIXEL CONNECT' }), row(fText(g, 'winTitle', 'Win title', { ph: 'YOU WIN!', help: TITLE_HELP }), fText(g, 'winText', 'Win message'))));
   };
+  /* ---------- 🛠 Tools ---------- */
+  var TOOL_LIST = [
+    ['dither', 'DITHER LAB', 'Retro dithering with 12 patterns and colour palettes.'],
+    ['y2k', 'Y2K COVER', 'Turn any photo into a 2000s magazine cover.'],
+    ['glow', 'GLOW STUDIO', 'Bloom, neon edges, dreamy haze, star glints.'],
+    ['texture', 'TEXTURE LAB', 'Lay textures over your picture with blend modes.'],
+    ['fx', 'FX MIXER', 'Stack 30 creative effects: glitch, VHS, halftone…'],
+    ['bgremove', 'BG REMOVER', 'Drop a picture, click remove, background gone.'],
+    ['convert', 'FILE CONVERTER', 'MP4 → MP3/WAV, images → PNG/JPG/WEBP/ICO/PDF.'],
+    ['rename', 'ZIP RENAMER', 'Rename every file in a zip at once. Live preview.']
+  ];
+  function toolsPage() { var l = S.cfg.pages.filter(function (p) { return p.sections.some(function (s) { return s.type === 'tools'; }); }); return l.filter(function (p) { return p !== S.cfg.pages[0]; })[0] || l[0]; }
+  function addToolsPage() {
+    var id = uniquePageId('tools');
+    S.cfg.pages.push({ id: id, title: 'TOOLS', inNav: true, icon: 'star', sections: [
+      { id: uid('s'), type: 'text', visible: true, align: 'left', title: 'CREATIVE {TOOLS}', text: 'Free tools for your art and sounds — pick one ✦ Everything runs in your browser, nothing gets uploaded.', size: 'normal', buttons: [] },
+      { id: uid('s'), type: 'tools', visible: true, align: 'left', title: '', subtitle: '', style: 'tiles', showDesc: true }
+    ] });
+    return id;
+  }
+  VIEWS.tools = function (E) {
+    var T = S.cfg.tools;
+    add(E, head('Tools', 'Your tools page: each tool has a pixel icon that opens its own page. Turn tools on/off, rename them, change their icons and choose the textures people can use.'));
+    var tp = toolsPage();
+    add(E, group('Tools page', null, tp
+      ? el('div', null, el('div', { class: 'note ok', html: 'Your tools grid is on the page <b>' + escHtml(tp.title || tp.id) + '</b> (yoursite/#/' + escHtml(tp.id) + '). Each tool opens at yoursite/#/tool/<i>name</i>. You can also add a <b>Tools</b> section to any other page in Pages & Layout.' }), el('button', { class: 'ab small', type: 'button', text: '▶ Show it in the preview', onclick: function () { pvGoto(tp.id); } }))
+      : el('div', null, el('div', { class: 'note warn', text: 'The tools grid isn’t on any page right now.' }), el('button', { class: 'ab primary small', type: 'button', text: '+ Add the TOOLS page', onclick: function () { addToolsPage(); changed(); fillPageSelect(); renderTab(); } }))));
+    var order = (T.order || []).filter(function (id) { return TOOL_LIST.some(function (x) { return x[0] === id; }); });
+    TOOL_LIST.forEach(function (x) { if (order.indexOf(x[0]) < 0) order.push(x[0]); });
+    var arr = order.map(function (id) { if (!T.items[id] || typeof T.items[id] !== 'object') T.items[id] = {}; T.items[id].id = id; return T.items[id]; });
+    function def(id, i) { return TOOL_LIST.filter(function (x) { return x[0] === id; })[0][i]; }
+    var list = listEditor(arr, { key: 'tool', noDup: true, noDel: true,
+      title: function (x) { return (x.title || def(x.id, 1)) + (x.enabled === false ? '  (hidden)' : ''); }, sub: function (x) { return x.desc || def(x.id, 2); },
+      hidden: function (x) { return x.enabled === false; },
+      thumb: function (x) { return x.icon ? { kind: 'img', url: assetUrl(x.icon) } : null; },
+      onReorder: function () { T.order = arr.map(function (x) { return x.id; }); changed(); },
+      body: function (x, c, h) {
+        add(c, [fToggle(x, 'enabled', 'Show this tool', { defOn: true, after: h }),
+          row(fText(x, 'title', 'Name', { ph: def(x.id, 1), after: h }), fText(x, 'desc', 'Short description', { ph: def(x.id, 2), after: h })),
+          fImage(x, 'icon', 'Your own icon (empty = pixel icon)', { after: h }),
+          el('button', { class: 'ab small', type: 'button', text: '▶ Open this tool in the preview', onclick: function () { pvGoto('tool/' + x.id); } })]);
+      } });
+    T.order = arr.map(function (x) { return x.id; });
+    add(E, group('Your tools', 'drag to change the order', list));
+    var tex = listEditor(T.textures, { key: 'tex', noDup: true,
+      title: function (x) { return x.name || String(x.src || '').split('/').pop() || '(texture)'; }, sub: function () { return ''; },
+      thumb: function (x) { return x.src ? { kind: 'img', url: assetUrl(x.src) } : null; },
+      body: function (x, c, h) { add(c, [fText(x, 'name', 'Name shown under it', { after: h }), fImage(x, 'src', 'Texture picture', { after: h })]); },
+      empty: 'No textures uploaded yet — the built-in ones are used.' });
+    var up = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload textures', onclick: function () {
+      pickFiles('image/*', true).then(function (files) {
+        if (!files.length) return;
+        var seq = Promise.resolve(), n = 0;
+        files.forEach(function (f) { seq = seq.then(function () { return uploadFile(f, false).then(function (p) { if (p) { T.textures.push({ id: uid('tx'), name: f.name.replace(/\.[^.]+$/, '').slice(0, 24), src: p }); n++; } }); }); });
+        seq.then(function () { changed(); tex.rerender(); toast(n + ' texture(s) added ✦', 'ok'); });
+      });
+    } });
+    add(E, group('Texture library', 'what people can pick in TEXTURE LAB',
+      el('div', { class: 'note', html: 'Upload paper, grain, dust, halftone, holo foil, film burns… Square pictures around 1000–2000px work best. Visitors scroll through them and pick a blend mode.' }),
+      el('div', { class: 'add-row', style: 'margin:0 0 10px' }, up), tex,
+      row(fToggle(T, 'builtinTextures', 'Also include the 12 built-in textures', { defOn: true }), fToggle(T, 'allowUpload', 'Let visitors use their own texture too', { defOn: true }))));
+    add(E, el('div', { class: 'note', html: '<b>Good to know:</b> the AI background remover and the MP3 encoder load free open-source code (from jsdelivr.net) the first time someone uses them. The AI model is downloaded once (~40–170 MB) and then cached. Everything else is built into your site.' }));
+  };
   function addGamePage() {
     var id = uniquePageId('pixel-connect');
     S.cfg.pages.push({ id: id, title: 'PIXEL CONNECT', inNav: true, icon: 'star', sections: [
@@ -1667,12 +1742,22 @@
     function fill(obj, defs) { Object.keys(defs).forEach(function (k) { if (obj[k] === undefined) { obj[k] = defs[k]; changedAny = true; } }); }
     fill(c.music, { enabled: false, tracks: [], autoplay: true, volume: 0.5, shuffle: false, position: 'bottom-left', startMinimized: false, label: 'NOW PLAYING' });
     fill(c.game, { title: 'PIXEL CONNECT', images: [], minPieces: 6, maxPieces: 20, pixelate: true, pixelBlock: 6, sound: true, showGhost: true, winTitle: 'YOU WIN!', winText: 'Puzzle complete ✦' });
-    fill(c.theme, { scale: 100, scaleMobile: 100 });
+    fill(c.theme, { scale: 100, scaleMobile: 100, look: 'arcade' });
+    fill(c.tools, { builtinTextures: true, allowUpload: true });
     if (v < 2) {
       if (!c.pages.some(function (p) { return (p.sections || []).some(function (s) { return s.type === 'game'; }); })) addGamePage();
       c.version = 2; changedAny = true;
     }
-    return v < 2 && changedAny;
+    if (v < 3) {
+      if (!c.pages.some(function (p) { return (p.sections || []).some(function (s) { return s.type === 'tools'; }); })) {
+        addToolsPage();
+        var home = c.pages[0], ks = (home.sections || []).map(function (s) { return s.type; }).lastIndexOf('kits');
+        var sec = { id: uid('s'), type: 'tools', visible: true, align: 'left', title: 'CREATIVE {TOOLS}', subtitle: 'Free tools — dither, Y2K covers, glow, textures, background remover & more', style: 'icons', showDesc: false };
+        if (ks >= 0) home.sections.splice(ks + 1, 0, sec); else home.sections.push(sec);
+      }
+      c.version = 3; changedAny = true;
+    }
+    return v < 3 && changedAny;
   }
   function boot() {
     if (!window.crypto || !crypto.subtle) {
@@ -1725,7 +1810,7 @@
       S.ready = true;
       renderSide(); renderTab(); updateStatus(); fillPageSelect();
       if (S.newLock) toast('Password set ✦ Press Publish to switch the lock on everywhere', 'ok', 6000);
-      else if (S.migrated) toast('New features added (PIXEL CONNECT page, music, popups…) ✦ Press Publish to put them live', 'ok', 7000);
+      else if (S.migrated) toast('New features added (TOOLS page, new layout look, tools on your home page…) ✦ Press Publish to put them live', 'ok', 8000);
       else if (draft && json(S.cfg) !== S.published) toast('Restored your unpublished draft ✦', null, 3500);
       sendPreview(true);
     }).catch(function (e) {

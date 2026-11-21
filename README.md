@@ -83,6 +83,22 @@ Your design lives in **`content/site.json`** and your files in **`uploads/`**. E
 - **Embed** section: paste embed code or a link (YouTube, Spotify, SoundCloud, Bandcamp…). Sites that block embedding (like [untitled]) show as a player card.
 - **🎮 PIXEL CONNECT**: a pixel jigsaw game on its own page. Up to 20 pictures, 5–20 pieces, new picture every game.
 
+## What's new in v3
+- **TOOLS page** with 8 tools. Each one has a pixel icon that opens its own page (`#/tool/<name>`):
+  DITHER LAB, Y2K COVER, GLOW STUDIO, TEXTURE LAB (you pick the textures, visitors scroll through them and choose a blend mode), FX MIXER (30 stackable effects), BG REMOVER (AI plus a quick mode and a touch-up brush), FILE CONVERTER (video and audio to MP3 or WAV; pictures to PNG, JPG, WEBP, BMP, ICO or PDF) and ZIP RENAMER (rename every file in a zip at once with a live preview; works on multi-GB zips because nothing is re-compressed).
+- New **Arcade** layout look (numbered sections, holo bars, tilted window). You can switch back under Size, Colors & Fonts → Layout look.
+- Admin: a new **🛠 Tools** tab (show or hide tools, rename them, change icons, reorder them, upload textures) and a **Tools** section type you can put on any page.
+- All tools run in the visitor's browser and nothing gets uploaded. The AI background remover (@imgly/background-removal) and the MP3 encoder (lamejs) are free open-source libraries that load from jsdelivr.net the first time someone uses them.
+
+## Custom domain (sul4ever.xyz)
+The `CNAME` file tells GitHub Pages to serve the site at **sul4ever.xyz**. After uploading it:
+1. In the repo, go to **Settings → Pages → Custom domain**, enter `sul4ever.xyz` and press Save.
+2. Where you bought the domain, open the DNS settings and add:
+   - four **A** records for `@` pointing to `185.199.108.153`, `185.199.109.153`, `185.199.110.153` and `185.199.111.153`
+   - one **CNAME** record for `www` pointing to `yprodd13-dot.github.io`
+3. Wait for DNS to update (from a few minutes up to a day), then tick **Enforce HTTPS** in Settings → Pages.
+Your admin will then be at `sul4ever.xyz/studio-…/` (the same secret folder name as before).
+
 ## Testing on your computer
 If you double-click `index.html`, the site won't load its content, because browsers block that. Run a small local server in this folder instead:
 ```

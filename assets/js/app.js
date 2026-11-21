@@ -11,7 +11,7 @@
     meta: { title: 'SUL0557', description: '', favicon: 'assets/img/favicon.png', shareImage: '' },
     brand: { name: 'SUL0557', logo: 'assets/img/logo.png', headerLogoSize: 44 },
     intro: { enabled: true, logo: 'assets/img/logo.png', logoSize: 520, title: '', subtitle: '', buttonText: '✦ ENTER', logoAnimation: 'float', exitAnimation: 'zoom', oncePerSession: false, autoEnterSeconds: 0, showSparkleBurst: true },
-    theme: { primary: '#ff2bc2', secondary: '#8a3cff', accent: '#38c8ff', highlight: '#fff27a', text: '#1c0b33', muted: '#7a5a9a', surface: '#ffffff', surfaceOpacity: 0.62, headingFont: 'Fraunces', bodyFont: 'Fraunces', uiFont: 'Space Grotesk', headingWeight: 900, headingItalic: false, uppercaseHeadings: true, radius: 22, buttonStyle: 'chunky', cardStyle: 'glass', contentWidth: 1180 },
+    theme: { primary: '#ff2bc2', secondary: '#8a3cff', accent: '#38c8ff', highlight: '#fff27a', text: '#1c0b33', muted: '#7a5a9a', surface: '#ffffff', surfaceOpacity: 0.62, headingFont: 'Fraunces', bodyFont: 'Fraunces', uiFont: 'Space Grotesk', look: 'arcade', headingWeight: 900, headingItalic: false, uppercaseHeadings: true, radius: 22, buttonStyle: 'chunky', cardStyle: 'glass', contentWidth: 1180 },
     background: { type: 'pixel-sky', skyTop: '#fbe3f6', skyMid: '#e9ecff', skyBottom: '#ffe9f7', pixelSize: 4, clouds: true, rainbow: true, sprouts: true, bubbles: true, sparkles: true, rays: true, image: '', imageFit: 'cover', overlayColor: '#ffffff', overlayOpacity: 0 },
     animations: { enabled: true, speed: 1, entrance: 'fade-up', stagger: 90, pageTransition: 'fade', cardHover: 'tilt', buttonHover: 'bounce', logoFloat: true, logoGlow: true, cursorTrail: true, cursorTrailColor: 'rainbow', cloudSpeed: 1, sparkleAmount: 1, marqueeSpeed: 1 },
     header: { layout: 'pill', sticky: true, showSocials: true, ctaText: '', ctaLink: '', style: 'glass' },
@@ -22,6 +22,7 @@
     music: { enabled: false, tracks: [], autoplay: true, volume: 0.5, shuffle: false, position: 'bottom-left', startMinimized: false, label: 'NOW PLAYING' },
     popups: [],
     icons: {},
+    tools: { order: [], items: {}, textures: [], builtinTextures: true, allowUpload: true },
     game: { title: 'PIXEL CONNECT', images: [], minPieces: 6, maxPieces: 20, pixelate: true, pixelBlock: 6, sound: true, showGhost: true, winTitle: 'YOU WIN!', winText: 'Puzzle complete ✦' },
     pages: [{ id: 'home', title: 'HOME', inNav: true, sections: [] }],
     kits: [],
@@ -274,6 +275,7 @@
     r.setProperty('--marquee-speed', String(clamp(num(a.marqueeSpeed, 1), 0.1, 6)));
     [t.headingFont, t.bodyFont, t.uiFont].forEach(loadFont);
 
+    b.setAttribute('data-look', t.look || 'arcade');
     b.setAttribute('data-btn', t.buttonStyle || 'pixel');
     b.setAttribute('data-card', t.cardStyle || 'pixel');
     b.setAttribute('data-btnhover', a.buttonHover || 'bounce');
@@ -679,6 +681,9 @@
     var mw = clamp(num(s.maxWidth, 900), 200, 3000);
     return secHead(s) + '<div class="embed-wrap reveal" style="max-width:' + mw + 'px">' + embedHtml(s) + '</div>';
   };
+  R.tools = function (s) {
+    return secHead(s) + (window.SulTools ? window.SulTools.sectionHtml(s, cfg, api) : '');
+  };
   R.game = function (s) {
     return secHead(s) + '<div class="pc-mount reveal" data-game="' + esc(s.id) + '"></div>';
   };
@@ -874,6 +879,8 @@
   function currentPage() {
     var id = decodeURIComponent((location.hash || '').replace(/^#\/?/, '').split(/[?#]/)[0]);
     var p = null;
+    var tm = /^tool\/([a-z0-9-]+)$/.exec(id);
+    if (tm) return { id: 'tool/' + tm[1], tool: tm[1], sections: [] };
     for (var i = 0; i < cfg.pages.length; i++) if (cfg.pages[i].id === id) p = cfg.pages[i];
     return p || cfg.pages[0];
   }
@@ -884,9 +891,16 @@
     var pt = cfg.animations.enabled === false ? 'none' : (cfg.animations.pageTransition || 'fade');
     var doRender = function () {
       if (window.SulGame) window.SulGame.unmountAll();
+      if (window.SulTools) window.SulTools.unmountAll();
       galleryStateResetFor(page);
-      app.innerHTML = '<div class="page" data-page="' + esc(page.id) + '">' + (page.sections || []).map(renderSection).join('') + '</div>';
-      markActiveNav(page.id);
+      if (page.tool) {
+        app.innerHTML = '<div class="page page-tool" data-page="tool"><div data-tool-mount></div></div>';
+        if (window.SulTools) window.SulTools.mount(app.querySelector('[data-tool-mount]'), page.tool, cfg, api);
+        markActiveNav(toolsHomeId());
+      } else {
+        app.innerHTML = '<div class="page" data-page="' + esc(page.id) + '">' + (page.sections || []).map(renderSection).join('') + '</div>';
+        markActiveNav(page.id);
+      }
       bindApp(app);
       if (window.SulGame) app.querySelectorAll('[data-game]').forEach(function (m) { window.SulGame.mount(m, cfg, api); });
       setupReveal(app, !!opts.instant);
@@ -904,6 +918,11 @@
       app.className = 'pt-' + pt + '-out';
       setTimeout(function () { routing = false; doRender(); }, 260 / clamp(num(cfg.animations.speed, 1), 0.2, 4));
     } else doRender();
+  }
+  function toolsHomeId() {
+    var found = '';
+    for (var i = cfg.pages.length - 1; i >= 0; i--) if ((cfg.pages[i].sections || []).some(function (s) { return s.type === 'tools' && s.visible !== false; })) { found = cfg.pages[i].id; if (i > 0) break; }
+    return found;
   }
   function galleryStateResetFor(page) {
     // keep chosen tab while editing in the admin preview, reset when visitors switch page
