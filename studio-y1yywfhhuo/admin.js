@@ -210,7 +210,10 @@
   /* ================= state / history / sync ================= */
   function normalize(c) {
     c = c && typeof c === 'object' ? c : {};
-    ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement', 'music', 'icons', 'game', 'tools'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
+    ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement', 'music', 'icons', 'game', 'tools', 'editor'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
+    ['assets', 'textures', 'templates', 'hiddenTemplates'].forEach(function (k) { if (!Array.isArray(c.editor[k])) c.editor[k] = []; });
+    if (!c.editor.cloud || typeof c.editor.cloud !== 'object') c.editor.cloud = { enabled: true, url: '', anonKey: '', bucket: 'projects' };
+    c.editor.assets.forEach(function (a) { if (!a.id) a.id = uid('ea'); }); c.editor.textures.forEach(function (a) { if (!a.id) a.id = uid('et'); }); c.editor.templates.forEach(function (a) { if (!a.id) a.id = uid('etp'); });
     if (!c.tools.items || typeof c.tools.items !== 'object' || Array.isArray(c.tools.items)) c.tools.items = {};
     if (!Array.isArray(c.tools.order)) c.tools.order = [];
     if (!Array.isArray(c.tools.textures)) c.tools.textures = [];
@@ -712,6 +715,7 @@
     links: { label: 'Link buttons list', icon: '🔗', desc: 'Stack of big buttons (link-in-bio style).' },
     embed: { label: 'Embed (players, videos…)', icon: '⧉', desc: 'Paste embed code or a link: YouTube, Spotify, SoundCloud, Bandcamp, untitled…' },
     game: { label: 'PIXEL CONNECT game', icon: '🎮', desc: 'Your pixel puzzle game (settings in 🎮 PIXEL CONNECT).' },
+    editor: { label: 'SHORT EDITOR (video editor)', icon: '🎬', desc: 'The full video editor (settings in 🎬 Short Editor).' },
     tools: { label: 'Tools (icon grid)', icon: '🛠', desc: 'Your creative tools — each icon opens its own tool page (settings in 🛠 Tools).' },
     spacer: { label: 'Empty space', icon: '↕', desc: 'Adds space between sections.' }
   };
@@ -733,6 +737,7 @@
       case 'spacer': Object.assign(s, { height: 60 }); break;
       case 'embed': Object.assign(s, { title: '', subtitle: '', code: '', mode: 'auto', height: 0, maxWidth: 900, cardImage: '', cardTitle: '', cardText: '', cardButton: '▶ LISTEN' }); break;
       case 'game': Object.assign(s, { title: '', subtitle: '' }); break;
+      case 'editor': Object.assign(s, { title: '', subtitle: '', width: 'full' }); break;
       case 'tools': Object.assign(s, { title: 'CREATIVE {TOOLS}', subtitle: 'Free tools — everything runs in your browser', style: 'tiles', showDesc: true }); break;
     }
     return s;
@@ -852,6 +857,9 @@
     } else if (s.type === 'game') {
       F.push(group('PIXEL CONNECT', null, fText(s, 'title', 'Title above the game (optional)', { after: h, help: TITLE_HELP }), fText(s, 'subtitle', 'Subtitle'),
         el('div', { class: 'note', html: 'Pictures, piece counts and sounds are in <b>🎮 PIXEL CONNECT</b>.' })));
+    } else if (s.type === 'editor') {
+      F.push(group('SHORT EDITOR', null, fText(s, 'title', 'Title above the editor (optional)', { after: h, help: TITLE_HELP }), fText(s, 'subtitle', 'Subtitle'),
+        el('div', { class: 'note', html: 'Assets, textures, templates and logins are in <b>🎬 Short Editor</b>. Set Width to <b>Full screen</b> below for the most room.' })));
     } else if (s.type === 'tools') {
       F.push(group('Tools grid', null, fText(s, 'title', 'Title (optional)', { after: h, help: TITLE_HELP }), fText(s, 'subtitle', 'Subtitle'),
         row(fSelect(s, 'style', 'Look', [['tiles', 'Tiles with text'], ['icons', 'Big icons (like an app screen)'], ['list', 'One per row']], { def: 'tiles', after: h }), fToggle(s, 'showDesc', 'Show short descriptions', { defOn: true })),
@@ -880,6 +888,7 @@
     ['reviews', '💬', 'Reviews'],
     ['game', '🎮', 'PIXEL CONNECT'],
     ['tools', '🛠', 'Tools'],
+    ['editor', '🎬', 'Short Editor'],
     ['music', '🎵', 'Music Player'],
     ['popups', '🔔', 'Popups & Updates'],
     ['intro', '✨', 'Intro Page'],
@@ -1650,6 +1659,97 @@
     });
     add(E, el('div', { class: 'note', html: '<b>Good to know:</b> everything in the tools runs inside visitors’ browsers. The AI (≈115–225 MB) loads from your own site the first time someone uses AI Pro, then it’s saved in their browser.' }));
   };
+  /* ---------- 🎬 Short Editor ---------- */
+  var SE_TEMPLATES = [['preset-breakdown', 'Preset breakdown'], ['drum-grid', 'Drum grid'], ['pink-player', 'Pink player'], ['waveform-stack', 'Waveform stack'], ['neon-keys', 'Neon keys'], ['cover-pulse', 'Cover pulse'], ['chrome-lyrics', 'Y2K lyrics'], ['pixel-arcade', 'Pixel arcade'], ['blank', 'Blank']];
+  function editorPage() { return S.cfg.pages.filter(function (p) { return p.sections.some(function (s) { return s.type === 'editor'; }); })[0]; }
+  function addEditorPage() {
+    var id = uniquePageId('short-editor');
+    S.cfg.pages.push({ id: id, title: 'SHORT EDITOR', inNav: true, icon: 'star', sections: [
+      { id: uid('s'), type: 'editor', visible: true, align: 'left', width: 'full', spacing: 'small', title: '', subtitle: '' }
+    ] });
+    return id;
+  }
+  var SB_SQL = "-- SUL SHORT EDITOR: run once in Supabase → SQL Editor → New query → Run\ninsert into storage.buckets (id, name, public) values ('projects', 'projects', false) on conflict (id) do nothing;\ncreate policy \"sul short read own\" on storage.objects for select to authenticated using (bucket_id = 'projects' and (storage.foldername(name))[1] = auth.uid()::text);\ncreate policy \"sul short add own\" on storage.objects for insert to authenticated with check (bucket_id = 'projects' and (storage.foldername(name))[1] = auth.uid()::text);\ncreate policy \"sul short change own\" on storage.objects for update to authenticated using (bucket_id = 'projects' and (storage.foldername(name))[1] = auth.uid()::text);\ncreate policy \"sul short delete own\" on storage.objects for delete to authenticated using (bucket_id = 'projects' and (storage.foldername(name))[1] = auth.uid()::text);";
+  VIEWS.editor = function (E) {
+    var ED = S.cfg.editor;
+    add(E, head('Short Editor', 'The SHORT EDITOR page: people make music videos with MIDI visuals, text, templates and your free assets, then export the video.'));
+    var pg = editorPage();
+    add(E, group('Editor page', null, pg
+      ? el('div', null, el('div', { class: 'note ok', html: 'The editor is on your page <b>' + escHtml(pg.title || pg.id) + '</b> (yoursite/#/' + escHtml(pg.id) + ').' }), el('button', { class: 'ab small', type: 'button', text: '▶ Show it in the preview', onclick: function () { pvGoto(pg.id); } }))
+      : el('div', null, el('div', { class: 'note warn', text: 'The editor isn’t on any page right now.' }), el('button', { class: 'ab primary small', type: 'button', text: '+ Add the SHORT EDITOR page', onclick: function () { addEditorPage(); changed(); fillPageSelect(); renderTab(); } }))));
+    // assets
+    var alist = listEditor(ED.assets, { key: 'easset', noDup: true,
+      title: function (x) { return (x.name || String(x.src || '').split('/').pop() || '(asset)') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function (x) { return x.category || ''; },
+      hidden: function (x) { return x.enabled === false; },
+      thumb: function (x) { return x.src ? { kind: 'img', url: assetUrl(x.src) } : null; },
+      body: function (x, c, h) { add(c, [fToggle(x, 'enabled', 'People can use it', { defOn: true, after: h }), row(fText(x, 'name', 'Name', { after: h }), fText(x, 'category', 'Group (e.g. Characters, Stickers, Frames)', { after: h })), fImage(x, 'src', 'Picture (PNG with transparency works best)', { after: h })]); },
+      empty: 'No assets yet — upload your characters, stickers, frames, logos…' });
+    var up = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload assets', onclick: function () {
+      pickFiles('image/*', true).then(function (files) {
+        if (!files.length) return; var seq = Promise.resolve(), n = 0;
+        files.forEach(function (f) { seq = seq.then(function () { return uploadFile(f, false).then(function (p) { if (p) { ED.assets.push({ id: uid('ea'), name: f.name.replace(/\.[^.]+$/, '').slice(0, 30), category: '', src: p }); n++; } }); }); });
+        seq.then(function () { changed(); alist.rerender(); toast(n + ' asset(s) added ✦', 'ok'); });
+      });
+    } });
+    add(E, group('Free assets panel', 'people drag these onto their video', el('div', { class: 'add-row', style: 'margin:0 0 10px' }, up), alist,
+      el('div', { class: 'note', html: 'Tip: put a group name on each asset to sort them into sections. Animated GIFs show as a still picture in videos.' })));
+    // textures
+    var tlist = listEditor(ED.textures, { key: 'etex', noDup: true,
+      title: function (x) { return (x.name || String(x.src || '').split('/').pop() || '(texture)') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function () { return ''; },
+      hidden: function (x) { return x.enabled === false; },
+      thumb: function (x) { return x.src ? { kind: 'img', url: assetUrl(x.src) } : null; },
+      body: function (x, c, h) { add(c, [fToggle(x, 'enabled', 'People can use it', { defOn: true, after: h }), fText(x, 'name', 'Name', { after: h }), fImage(x, 'src', 'Texture picture', { after: h })]); },
+      empty: 'No editor-only textures — the texture library below is used.' });
+    var tup = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload textures', onclick: function () {
+      pickFiles('image/*', true).then(function (files) {
+        if (!files.length) return; var seq = Promise.resolve(), n = 0;
+        files.forEach(function (f) { seq = seq.then(function () { return uploadFile(f, false).then(function (p) { if (p) { ED.textures.push({ id: uid('et'), name: f.name.replace(/\.[^.]+$/, '').slice(0, 24), src: p }); n++; } }); }); });
+        seq.then(function () { changed(); tlist.rerender(); toast(n + ' texture(s) added ✦', 'ok'); });
+      });
+    } });
+    add(E, group('Textures panel', null, el('div', { class: 'add-row', style: 'margin:0 0 10px' }, tup), tlist,
+      row(fToggle(ED, 'useToolTextures', 'Also show the 🛠 Tools texture library', { defOn: true }), fToggle(ED, 'builtinTextures', 'Also show the built-in textures (the ones switched on in 🛠 Tools)', { defOn: true }))));
+    // templates
+    var hid = ED.hiddenTemplates;
+    var tg = el('div', { class: 'preset-grid' }, SE_TEMPLATES.map(function (t) {
+      var off = hid.indexOf(t[0]) >= 0;
+      return el('button', { class: 'preset', type: 'button', style: off ? 'border-style:dashed;opacity:.55' : 'border-color:#ff3fc8', onclick: function () { var i = hid.indexOf(t[0]); if (i >= 0) hid.splice(i, 1); else hid.push(t[0]); changed(); renderTab(); } }, el('b', { text: (off ? '✕ ' : '✓ ') + t[1] }));
+    }));
+    var clist = listEditor(ED.templates, { key: 'etpl', noDup: true,
+      title: function (x) { return x.name || 'Template'; }, sub: function (x) { return x.desc || ''; },
+      body: function (x, c, h) { add(c, [fText(x, 'name', 'Name', { after: h }), fText(x, 'desc', 'Short description', { after: h })]); },
+      empty: 'No templates of your own yet.' });
+    var tplUp = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Add a template (.sulshort file)', onclick: function () {
+      pickFiles('.sulshort,application/json', false).then(function (files) {
+        var f = files[0]; if (!f) return;
+        f.text().then(function (txt) {
+          var j = JSON.parse(txt), P = j.project || j; if (!P || !Array.isArray(P.layers)) throw new Error('Not a SHORT EDITOR project');
+          var dropped = 0; P = JSON.parse(JSON.stringify(P));
+          Object.keys(P.media || {}).forEach(function (id) { var m = P.media[id]; if (!m.src) { dropped++; delete P.media[id]; } });
+          P.layers.forEach(function (l) { if (l.media && !(P.media || {})[l.media]) l.media = ''; });
+          if (P.audio && !(P.media || {})[P.audio]) P.audio = null;
+          P.midis = (P.midis || []).filter(function (m) { return (P.media || {})[m.id]; });
+          if (P.bg && P.bg.media && !(P.media || {})[P.bg.media]) P.bg.media = '';
+          ED.templates.push({ id: uid('etp'), name: P.name || f.name.replace(/\.[^.]+$/, ''), desc: '', json: P });
+          changed(); clist.rerender();
+          toast('Template added ✦' + (dropped ? ' (' + dropped + ' uploaded file(s) left out — they become empty slots people fill in)' : ''), 'ok', 6000);
+        }).catch(function (e) { toast('Couldn’t read that file: ' + e.message, 'bad', 5000); });
+      });
+    } });
+    add(E, group('Templates', 'click to switch the free ones on/off', tg,
+      el('div', { class: 'note', html: 'Make your own: build a video in the SHORT EDITOR (use pictures from your <b>Free assets</b> so they stay in the template), then <b>📁 Projects → Download this project</b> and add that file here.' }),
+      el('div', { class: 'add-row', style: 'margin:10px 0' }, tplUp), clist));
+    // accounts
+    var C2 = ED.cloud;
+    add(E, group('Logins (save edits online)', 'optional — free Supabase account',
+      el('div', { class: 'note', html: 'Without this, people’s projects still save automatically in their own browser and can be downloaded as files. Turn this on to give people <b>☁ LOG IN</b> so their edits follow them to any device.' }),
+      fToggle(C2, 'enabled', 'Show “Log in” in the editor', { defOn: true }),
+      row(fText(C2, 'url', 'Supabase project URL', { ph: 'https://abcdefgh.supabase.co', nospell: true }), fText(C2, 'anonKey', 'Supabase anon public key', { ph: 'eyJhbGciOi…', nospell: true })),
+      fText(C2, 'bucket', 'Storage bucket name', { ph: 'projects', nospell: true }),
+      el('div', { class: 'note', html: '<b>Setup (about 5 minutes, free):</b><br>1. Make a free account at <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> → <b>New project</b>.<br>2. <b>Project Settings → API</b>: copy the <b>Project URL</b> and the <b>anon public</b> key into the boxes above. (The anon key is meant to be public. Never paste the “service_role” key here.)<br>3. <b>SQL Editor → New query</b>: paste the setup code below and press <b>Run</b>. It creates a private “projects” storage and makes sure each person can only see their own files.<br>4. <b>Authentication → URL Configuration</b>: set <b>Site URL</b> to <code>https://sul4ever.xyz</code> so confirmation emails link back to your site.<br>5. Press <b>Publish</b>. Free plan: 1 GB storage, files up to 50 MB.' }),
+      el('textarea', { class: 'code-box', readonly: 'readonly', rows: '7', style: 'width:100%;font:12px monospace' }, SB_SQL),
+      el('button', { class: 'ab small', type: 'button', text: '⧉ Copy setup code', onclick: function () { (navigator.clipboard ? navigator.clipboard.writeText(SB_SQL) : Promise.reject()).then(function () { toast('Copied ✦', 'ok'); }, function () { toast('Select the text and copy it'); }); } })));
+  };
   function addGamePage() {
     var id = uniquePageId('pixel-connect');
     S.cfg.pages.push({ id: id, title: 'PIXEL CONNECT', inNav: true, icon: 'star', sections: [
@@ -1782,6 +1882,7 @@
     fill(c.game, { title: 'PIXEL CONNECT', images: [], minPieces: 6, maxPieces: 20, pixelate: true, pixelBlock: 6, sound: true, showGhost: true, winTitle: 'YOU WIN!', winText: 'Puzzle complete ✦' });
     fill(c.theme, { scale: 100, scaleMobile: 100, look: 'arcade' });
     fill(c.tools, { builtinTextures: true, allowUpload: true });
+    fill(c.editor, { builtinTextures: true, useToolTextures: true });
     if (v < 2) {
       if (!c.pages.some(function (p) { return (p.sections || []).some(function (s) { return s.type === 'game'; }); })) addGamePage();
       c.version = 2; changedAny = true;
@@ -1795,7 +1896,11 @@
       }
       c.version = 3; changedAny = true;
     }
-    return v < 3 && changedAny;
+    if (v < 4) {
+      if (!c.pages.some(function (p) { return (p.sections || []).some(function (s) { return s.type === 'editor'; }); })) addEditorPage();
+      c.version = 4; changedAny = true;
+    }
+    return v < 4 && changedAny;
   }
   function boot() {
     if (!window.crypto || !crypto.subtle) {
@@ -1848,7 +1953,7 @@
       S.ready = true;
       renderSide(); renderTab(); updateStatus(); fillPageSelect();
       if (S.newLock) toast('Password set ✦ Press Publish to switch the lock on everywhere', 'ok', 6000);
-      else if (S.migrated) toast('New features added (TOOLS page, new layout look, tools on your home page…) ✦ Press Publish to put them live', 'ok', 8000);
+      else if (S.migrated) toast('New: SHORT EDITOR page added ✦ Press Publish to put it live', 'ok', 8000);
       else if (draft && json(S.cfg) !== S.published) toast('Restored your unpublished draft ✦', null, 3500);
       sendPreview(true);
     }).catch(function (e) {

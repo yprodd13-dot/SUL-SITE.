@@ -23,6 +23,7 @@
     popups: [],
     icons: {},
     tools: { order: [], items: {}, textures: [], hiddenTextures: [], builtinTextures: true, allowUpload: true },
+    editor: { assets: [], textures: [], templates: [], hiddenTemplates: [], builtinTextures: true, useToolTextures: true, cloud: { enabled: true, url: '', anonKey: '', bucket: 'projects' } },
     game: { title: 'PIXEL CONNECT', images: [], minPieces: 6, maxPieces: 20, pixelate: true, pixelBlock: 6, sound: true, showGhost: true, winTitle: 'YOU WIN!', winText: 'Puzzle complete ✦' },
     pages: [{ id: 'home', title: 'HOME', inNav: true, sections: [] }],
     kits: [],
@@ -681,6 +682,24 @@
     var mw = clamp(num(s.maxWidth, 900), 200, 3000);
     return secHead(s) + '<div class="embed-wrap reveal" style="max-width:' + mw + 'px">' + embedHtml(s) + '</div>';
   };
+  R.editor = function (s) {
+    return secHead(s) + '<div class="se-mount" data-editor="' + esc(s.id) + '"><div class="se-loading">LOADING SHORT EDITOR…</div></div>';
+  };
+  var EDITOR_FILES = ['assets/js/editor/core.js', 'assets/js/editor/cloud.js', 'assets/js/editor/ui.js'], editorLoading = null;
+  function loadEditor() {
+    if (window.ShortEditor) return Promise.resolve();
+    if (editorLoading) return editorLoading;
+    editorLoading = EDITOR_FILES.reduce(function (p, src) {
+      return p.then(function () { return new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = src + '?v=4'; sc.onload = res; sc.onerror = function () { rej(new Error('Could not load ' + src)); }; document.head.appendChild(sc); }); });
+    }, Promise.resolve()).catch(function (e) { editorLoading = null; throw e; });
+    return editorLoading;
+  }
+  function mountEditors(app) {
+    app.querySelectorAll('[data-editor]').forEach(function (m) {
+      loadEditor().then(function () { if (m.isConnected) window.ShortEditor.mount(m, cfg, api); })
+        .catch(function (e) { console.error(e); m.innerHTML = '<div class="se-loading">The editor couldn\'t load — please refresh the page.</div>'; });
+    });
+  }
   R.tools = function (s) {
     return secHead(s) + (window.SulTools ? window.SulTools.sectionHtml(s, cfg, api) : '');
   };
@@ -892,6 +911,7 @@
     var doRender = function () {
       if (window.SulGame) window.SulGame.unmountAll();
       if (window.SulTools) window.SulTools.unmountAll();
+      if (window.ShortEditor) window.ShortEditor.unmount();
       galleryStateResetFor(page);
       if (page.tool) {
         app.innerHTML = '<div class="page page-tool" data-page="tool"><div data-tool-mount></div></div>';
@@ -903,6 +923,7 @@
       }
       bindApp(app);
       if (window.SulGame) app.querySelectorAll('[data-game]').forEach(function (m) { window.SulGame.mount(m, cfg, api); });
+      mountEditors(app);
       setupReveal(app, !!opts.instant);
       if (window.SulPopups && !introShowing) window.SulPopups.pageChanged(page.id);
       if (!opts.keepScroll) window.scrollTo(0, 0);

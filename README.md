@@ -98,6 +98,21 @@ Your design lives in **`content/site.json`** and your files in **`uploads/`**. E
 The background remover's AI now lives **inside your site** (in `assets/ai/`), so visitors' browsers don't download it from other websites. Install it once:
 GitHub repo → **Actions** → **Install AI files** → **Run workflow**. It takes about 3–5 minutes. The workflow (`.github/workflows/install-ai.yml`) downloads BiRefNet-lite (MIT licence), U²-Net-p (Apache licence), the ONNX runtime and the MP3 encoder, then saves them to the repo in 45 MB pieces, because GitHub only allows files up to 100 MB. The admin's 🛠 Tools tab shows whether it's installed.
 
+## What's new in v4: SHORT EDITOR
+- New page `#/short-editor`. After the update, open the admin and press **Publish**: the admin adds the page automatically.
+- **Audio:** add your song or a video's sound, trim it, set the volume, and play a click track to check the beat.
+- **MIDI:** add one or more files. Use each file's own tempo or stretch it to your BPM, then nudge or shift it to line up with the audio. You can transpose it and pick which track or channel each visual follows.
+- **BPM:** type it, tap it, detect it automatically from the audio, or take it from the MIDI file. You can also set a beat offset.
+- **Visuals:** piano roll, drum step grid, falling notes, note bursts, synth panel, spectrum (bars, dots, line or circle), waveform, retro player, progress bar, time display and sparkles.
+- **Text:** any colour, outline or gradient, plus Google fonts or your own uploaded fonts. Put \*accent words\* between stars to style them differently. Text can appear word by word, like a typewriter, or one word per beat.
+- **Animation:** 14 ways for elements to come in and go out (bounce, pop, drop, slide, zoom, glitch…) and loops that react to the beat.
+- **Whole-video effects:** camera bounce on the beat, transitions (flash, bounce punch, zoom, whip, glitch, spin, dips, blur, RGB split), grain, vignette, bloom, scanlines, glitch, tint and texture overlays.
+- **Templates:** 9 free templates, including two based on your example videos. In the admin's 🎬 Short Editor tab you can switch templates on or off and add your own.
+- **Side panel:** your free assets and textures, ready to drag and drop. You manage them in the admin's 🎬 Short Editor tab.
+- **Saving:** projects save automatically in the person's browser, including their uploaded files. They can also download a project as a `.sulshort` file and open it again later.
+- **Optional logins** through a free Supabase account let people save projects online. The setup steps and SQL code are in the admin's 🎬 Short Editor tab.
+- **Export:** videos export at 720p or 1080p, 30 or 60 fps, as MP4 where the browser supports it and WebM otherwise. You can also save a single frame as a PNG.
+
 ## Custom domain (sul4ever.xyz)
 The `CNAME` file tells GitHub Pages to serve the site at **sul4ever.xyz**. After uploading it:
 1. In the repo, go to **Settings → Pages → Custom domain**, enter `sul4ever.xyz` and press Save.
