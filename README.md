@@ -94,6 +94,10 @@ Your design lives in **`content/site.json`** and your files in **`uploads/`**. E
 - **Dither Lab** now has three types: error diffusion, patterns and halftone. Patterns and halftone dots come in 14 shapes (dots, squares, diamonds, lines, crosses, rings, stars, hearts, triangles, waves, checker and more). You can set pixel size, pattern/dot size, dot fullness and angle, use up to 8 of your own colours or ink & paper, and pick CMYK, RGB or original-colour halftones. There are also tone controls and 10 one-click presets.
 - **BG Remover**: the new AI Pro engine uses BiRefNet (MIT licence, loaded with transformers.js), which handles hair and fine detail. If AI Pro can't start it falls back to AI Fast, then to plain-background mode. New refine controls: edge detail (a guided filter), hardness, shrink/grow, soften, remove leftover bits, fill holes and clean edge colours. There's also a smart edge-following brush, undo/redo, zoom up to 4×, result, red-overlay and mask views, extra background fills and a mask download.
 
+### v3.3: built-in AI
+The background remover's AI now lives **inside your site** (in `assets/ai/`), so visitors' browsers don't download it from other websites. Install it once:
+GitHub repo → **Actions** → **Install AI files** → **Run workflow**. It takes about 3–5 minutes. The workflow (`.github/workflows/install-ai.yml`) downloads BiRefNet-lite (MIT licence), U²-Net-p (Apache licence), the ONNX runtime and the MP3 encoder, then saves them to the repo in 45 MB pieces, because GitHub only allows files up to 100 MB. The admin's 🛠 Tools tab shows whether it's installed.
+
 ## Custom domain (sul4ever.xyz)
 The `CNAME` file tells GitHub Pages to serve the site at **sul4ever.xyz**. After uploading it:
 1. In the repo, go to **Settings → Pages → Custom domain**, enter `sul4ever.xyz` and press Save.

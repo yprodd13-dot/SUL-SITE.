@@ -1637,7 +1637,18 @@
         el('button', { class: 'ab small', type: 'button', text: '✕ All off', onclick: function () { T.hiddenTextures = BUILT.map(function (b) { return b[0]; }); changed(); drawBuilt(); } })),
       bgrid,
       fToggle(T, 'allowUpload', 'Let visitors use their own texture too', { defOn: true })));
-    add(E, el('div', { class: 'note', html: '<b>Good to know:</b> the AI background remover and the MP3 encoder load free open-source code (from jsdelivr.net) the first time someone uses them. The AI model is downloaded once (~40–170 MB) and then cached. Everything else is built into your site.' }));
+    var gh = ghCfg(), actUrl = gh.owner && gh.repo ? 'https://github.com/' + encodeURIComponent(gh.owner) + '/' + encodeURIComponent(gh.repo) + '/actions/workflows/install-ai.yml' : '';
+    var aiBox = el('div', { class: 'note', text: 'Checking…' });
+    add(E, group('Built-in AI (background remover)', 'lives inside your site — no outside downloads', aiBox));
+    fetch('../assets/ai/manifest.json?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (m) {
+      var mb = function (k) { return m.models[k] ? Math.round(m.models[k].size / 1048576) + ' MB' : 'missing'; };
+      aiBox.className = 'note ok';
+      aiBox.innerHTML = '<b>✓ Installed.</b> AI Pro: ' + mb('biref16') + ' (graphics card) / ' + mb('biref32') + ' (processor) · AI Lite: ' + mb('u2netp') + ' · MP3 encoder included. Installed ' + new Date(m.version * 1000).toLocaleDateString() + '.';
+    }).catch(function () {
+      aiBox.className = 'note warn';
+      aiBox.innerHTML = '<b>Not installed yet</b> — until it is, the remover uses plain-background mode.<br><br>Do this <b>once</b>:<br>1. Open your repo on GitHub → <b>Actions</b> tab' + (actUrl ? ' (<a href="' + actUrl + '" target="_blank" rel="noopener">open it</a>)' : '') + '.<br>2. If asked, click <b>“I understand my workflows, go ahead and enable them”</b>.<br>3. Click <b>Install AI files</b> on the left → <b>Run workflow</b> → green <b>Run workflow</b>.<br>4. Wait ~3–5 minutes for the green ✓, then a couple more minutes for the site to update. Refresh this page to check.';
+    });
+    add(E, el('div', { class: 'note', html: '<b>Good to know:</b> everything in the tools runs inside visitors’ browsers. The AI (≈115–225 MB) loads from your own site the first time someone uses AI Pro, then it’s saved in their browser.' }));
   };
   function addGamePage() {
     var id = uniquePageId('pixel-connect');

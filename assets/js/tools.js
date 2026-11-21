@@ -7,7 +7,6 @@
   'use strict';
 
   var LIBS = {
-    bg: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm',
     lame: 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js'
   };
 
@@ -426,10 +425,61 @@
   /* =========================================================
      BACKGROUND REMOVER
      ========================================================= */
-  var TF_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1', BIREF = 'onnx-community/BiRefNet_lite-ONNX';
-  var PRO = { model: null, proc: null, T: null, device: '' };
+  /* ---------- built-in AI (files live in this site: assets/ai/) ---------- */
+  var AI = { base: 'assets/ai/', manifest: null, sessions: {} };
+  function aiNotInstalled() { var e = new Error('The AI files aren\'t installed on this site yet.'); e.notInstalled = true; return e; }
+  async function aiManifest() {
+    if (AI.manifest) return AI.manifest;
+    var r; try { r = await fetch(AI.base + 'manifest.json', { cache: 'no-cache' }); } catch (e) { throw aiNotInstalled(); }
+    if (!r.ok) throw aiNotInstalled();
+    return (AI.manifest = await r.json());
+  }
+  async function aiRuntime() {
+    if (!window.ort) await loadScript(AI.base + 'ort/ort.webgpu.min.js');
+    if (!window.ort) throw new Error('AI runtime failed to start');
+    ort.env.wasm.wasmPaths = new URL(AI.base + 'ort/', location.href).href;
+    ort.env.wasm.numThreads = 1; ort.env.wasm.proxy = false;
+    return window.ort;
+  }
+  async function aiModelBytes(key, onP) {
+    var m = (await aiManifest()).models[key]; if (!m) throw new Error('AI file missing: ' + key);
+    var cache = null; try { cache = window.caches ? await caches.open('sul-ai-' + AI.manifest.version) : null; } catch (e) { cache = null; }
+    var all = new Uint8Array(m.size), off = 0;
+    for (var i = 0; i < m.parts.length; i++) {
+      var url = new URL(AI.base + m.parts[i], location.href).href, res = cache ? await cache.match(url) : null, fromCache = !!res;
+      if (!res) { res = await fetch(url); if (!res.ok) throw new Error('Could not load AI file ' + m.parts[i] + ' (' + res.status + ')'); }
+      var reader = res.body.getReader(), start = off;
+      while (true) { var ch = await reader.read(); if (ch.done) break; all.set(ch.value, off); off += ch.value.length; if (onP) onP(off / m.size, fromCache); }
+      if (cache && !fromCache) { try { await cache.put(url, new Response(all.slice(start, off))); } catch (e) { } }
+    }
+    return all;
+  }
+  async function aiSession(key, device, onP) {
+    var id = key + '@' + device; if (AI.sessions[id]) return AI.sessions[id];
+    var O = await aiRuntime(), bytes = await aiModelBytes(key, onP);
+    var sess = await O.InferenceSession.create(bytes, { executionProviders: [device], graphOptimizationLevel: 'all' });
+    return (AI.sessions[id] = sess);
+  }
+  function toHalf(f32) { var out = new Uint16Array(f32.length), fv = new Float32Array(1), iv = new Uint32Array(fv.buffer); for (var i = 0; i < f32.length; i++) { fv[0] = f32[i]; var x = iv[0], sign = (x >>> 16) & 0x8000, e = ((x >>> 23) & 0xff) - 112, m = x & 0x7fffff; if (e <= 0) out[i] = sign; else if (e >= 31) out[i] = sign | 0x7c00; else out[i] = sign | (e << 10) | (m >>> 13); } return out; }
+  function fromHalf(u16) { var out = new Float32Array(u16.length); for (var i = 0; i < u16.length; i++) { var h = u16[i], s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 31, f = h & 1023; out[i] = e === 0 ? s * Math.pow(2, -14) * (f / 1024) : e === 31 ? (f ? NaN : s * Infinity) : s * Math.pow(2, e - 15) * (1 + f / 1024); } return out; }
+  async function aiRun(sess, f32, dims) {
+    var O = window.ort, feeds = {}, inName = sess.inputNames[0];
+    feeds[inName] = new O.Tensor('float32', f32, dims);
+    var res;
+    try { res = await sess.run(feeds); }
+    catch (e) { if (!/float16|type|Unexpected input data type/i.test(String(e && e.message || e))) throw e; feeds[inName] = new O.Tensor('float16', toHalf(f32), dims); res = await sess.run(feeds); }
+    var out = res[sess.outputNames[0]], d = out.data;
+    if (out.type === 'float16') d = d instanceof Uint16Array ? fromHalf(d) : Float32Array.from(d);
+    return { data: d, dims: out.dims };
+  }
+  function imageTensor(src, size, mean, std) {
+    var c = PixFX.mk(size, size), g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(src, 0, 0, size, size);
+    var d = g.getImageData(0, 0, size, size).data, n = size * size, f = new Float32Array(3 * n);
+    for (var i = 0; i < n; i++) { f[i] = (d[i * 4] / 255 - mean[0]) / std[0]; f[n + i] = (d[i * 4 + 1] / 255 - mean[1]) / std[1]; f[2 * n + i] = (d[i * 4 + 2] / 255 - mean[2]) / std[2]; }
+    return f;
+  }
   function bgTool(root, ctx) {
-    var S = { engine: 'pro', model: 'isnet_fp16', tol: 28, detail: 4, hardness: 15, grow: 0, feather: 0, specks: 25, holes: false, decon: true, view: 'result', bg: 'clear', bgColor: '#ffffff', brush: 'erase', smart: true, smartTol: 35, size: 40, zoom: 1 };
+    var S = { engine: 'pro', tol: 28, detail: 4, hardness: 15, grow: 0, feather: 0, specks: 25, holes: false, decon: true, view: 'result', bg: 'clear', bgColor: '#ffffff', brush: 'erase', smart: true, smartTol: 35, size: 40, zoom: 1 };
     var refT = 0, name = 'image', W = 0, H = 0, PW = 0, PH = 0, orig = null, proc = null, procData = null, raw = null, refined = null, fin = null, decon = null, strokes = [], redo = [], busy = false;
     root.innerHTML =
       '<div class="tool-grid"><div class="tool-stage panel">' +
@@ -446,11 +496,10 @@
     function setStatus(t) { status.textContent = t || ''; }
     function setProg(f, label) { prog.hidden = f == null; if (f == null) return; prog.querySelector('i').style.width = Math.round(f * 100) + '%'; prog.querySelector('span').textContent = label || ''; }
     buildControls(root.querySelector('.tc-box'), [
-      { k: 'engine', label: 'Remover', type: 'chips', options: [['pro', '★ AI Pro (most accurate)'], ['ai', 'AI Fast'], ['quick', 'Plain backgrounds']] },
-      { k: 'model', label: 'AI Fast quality', type: 'chips', options: [['isnet_quint8', 'Fast'], ['isnet_fp16', 'Good'], ['isnet', 'Best']], show: function (s) { return s.engine === 'ai'; } },
+      { k: 'engine', label: 'Remover', type: 'chips', options: [['pro', '★ AI Pro (most accurate)'], ['lite', 'AI Lite (fast)'], ['quick', 'Plain backgrounds']] },
       { k: 'tol', label: 'Colour tolerance', type: 'range', min: 4, max: 90, show: function (s) { return s.engine === 'quick'; }, help: 'For a plain or studio background.' }
     ], S, function () { });
-    root.querySelector('.tc-box').insertAdjacentHTML('beforeend', '<small class="tc-help">AI Pro uses BiRefNet — great on hair, fur and fine detail. The first time it downloads the AI (≈115–225 MB, saved after that). With a good graphics card it takes a few seconds, otherwise up to a minute.</small>');
+    root.querySelector('.tc-box').insertAdjacentHTML('beforeend', '<small class="tc-help">The AI is built into this site and runs on your device. AI Pro (BiRefNet) is great on hair, fur and fine detail — the first run loads it (≈115 MB with a graphics card, ≈225 MB without; saved after that) and takes a few seconds to ~2 minutes depending on your device. AI Lite is small (5 MB) and quick but less precise.</small>');
     buildControls(root.querySelector('.tc-ref'), [
       { k: 'detail', label: 'Edge detail (hair, fur)', type: 'range', min: 0, max: 10, help: 'Snaps the edge to the real edges in your photo.' },
       { k: 'hardness', label: 'Edge hardness', type: 'range', min: 0, max: 100, unit: '%' },
@@ -497,50 +546,46 @@
     root.querySelector('[data-go]').addEventListener('click', async function () {
       if (!proc || busy) return;
       var btn = this; busy = true; btn.disabled = true; enable(false);
-      var order = S.engine === 'pro' ? ['pro', 'ai', 'quick'] : S.engine === 'ai' ? ['ai', 'quick'] : ['quick'], used = null, errs = [];
+      var order = S.engine === 'pro' ? ['pro', 'lite', 'quick'] : S.engine === 'lite' ? ['lite', 'quick'] : ['quick'], used = null, errs = [], notInst = false;
       for (var i = 0; i < order.length && !used; i++) {
         try {
-          if (order[i] === 'pro') raw = await runPro(); else if (order[i] === 'ai') raw = await runImgly(); else raw = quickMask();
+          if (order[i] === 'pro') raw = await runPro(); else if (order[i] === 'lite') raw = await runLite(); else raw = quickMask();
           used = order[i];
-        } catch (e) { console.error(e); errs.push((order[i] === 'pro' ? 'AI Pro' : order[i] === 'ai' ? 'AI Fast' : 'Quick') + ': ' + (e && e.message || e)); }
+        } catch (e) { console.error(e); if (e && e.notInstalled) notInst = true; errs.push((order[i] === 'pro' ? 'AI Pro' : order[i] === 'lite' ? 'AI Lite' : 'Quick') + ': ' + (e && e.message || e)); if (e && e.notInstalled && order[i] === 'pro') i++; }
       }
       setProg(null);
       if (used) {
         strokes = []; redo = []; undoBtns(); refineAll(); enable(true);
-        setStatus((used === S.engine ? 'Done ✓' : 'Done with ' + (used === 'ai' ? 'AI Fast' : 'Plain-background mode') + ' (the better AI couldn\'t start)') + ' — refine or paint to touch up');
-        if (used !== S.engine) alert('The ' + (S.engine === 'pro' ? 'AI Pro' : 'AI Fast') + ' remover couldn\'t start, so a simpler one was used.\n\n' + errs.join('\n') + '\n\nThis usually means the download was blocked, the browser is old, or the device ran out of memory. Try again on Wi-Fi or in Chrome/Edge.');
+        setStatus((used === S.engine ? 'Done ✓' : 'Done with ' + (used === 'lite' ? 'AI Lite' : 'Plain-background mode') + ' (the better AI couldn\'t run)') + ' — refine or paint to touch up');
+        if (used !== S.engine) alert(notInst ? 'The AI isn\'t installed on this site yet, so plain-background mode was used.\n\n(Site owner: run “Install AI files” once in GitHub → Actions.)' : 'The ' + (S.engine === 'pro' ? 'AI Pro' : 'AI Lite') + ' remover couldn\'t run on this device, so a simpler one was used.\n\n' + errs.join('\n') + '\n\nThis usually means the device ran out of memory — try a smaller picture or AI Lite.');
         ctx.api.burst(innerWidth / 2, innerHeight / 2, 24);
       } else alert('Couldn\'t remove the background:\n' + errs.join('\n'));
       busy = false; btn.disabled = false;
     });
     async function runPro() {
-      setProg(0.01, 'Loading AI Pro…');
-      if (!PRO.T) { PRO.T = await import(TF_URL); PRO.T.env.allowLocalModels = false; }
-      var T = PRO.T, files = {};
-      function onProg(e) { if (e && e.status === 'progress' && e.total) { files[e.file] = [e.loaded, e.total]; var l = 0, t = 0; Object.keys(files).forEach(function (k) { l += files[k][0]; t += files[k][1]; }); setProg(l / t * 0.9, 'Downloading AI model (first time only)… ' + Math.round(l / 1048576) + ' / ' + Math.round(t / 1048576) + ' MB'); } }
-      var tries = [];
-      if (navigator.gpu) tries.push(['webgpu', 'fp16'], ['webgpu', 'fp32']);
-      tries.push(['wasm', 'fp32']);
-      if (PRO.model) tries = [[PRO.device, PRO.dtype]].concat(tries.filter(function (t) { return t[0] !== PRO.device || t[1] !== PRO.dtype; }));
-      var last = null;
-      if (!PRO.proc) PRO.proc = await T.AutoProcessor.from_pretrained(BIREF);
-      var image = await T.RawImage.fromBlob(await canvasBlob(proc, 'image/png'));
-      var inp = await PRO.proc(image);
+      var tries = navigator.gpu ? [['biref16', 'webgpu'], ['biref32', 'wasm']] : [['biref32', 'wasm']], last = null;
+      var f = imageTensor(proc, 1024, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]);
       for (var i = 0; i < tries.length; i++) {
         try {
-          if (!PRO.model || PRO.device !== tries[i][0] || PRO.dtype !== tries[i][1]) {
-            PRO.model = null;
-            PRO.model = await T.AutoModel.from_pretrained(BIREF, { device: tries[i][0], dtype: tries[i][1], progress_callback: onProg });
-            PRO.device = tries[i][0]; PRO.dtype = tries[i][1];
-          }
-          setProg(0.92, 'AI is cutting it out… (' + (PRO.device === 'webgpu' ? 'graphics card' : 'processor — can take a minute') + ')'); await tick();
-          var res = await PRO.model({ input_image: inp.pixel_values });
-          var outT = res.output_image || res[Object.keys(res)[0]];
-          var m = await T.RawImage.fromTensor(outT[0].sigmoid().mul(255).to('uint8'));
-          return rawFromGray(m.data, m.width, m.height, m.channels || 1);
-        } catch (e) { console.warn('BiRefNet attempt failed', tries[i], e); last = e; PRO.model = null; }
+          setProg(0.01, 'Loading AI Pro…');
+          var sess = await aiSession(tries[i][0], tries[i][1], function (p, cached) { setProg(p * 0.9, (cached ? 'Opening AI Pro… ' : 'Loading AI Pro (first time only)… ') + Math.round(p * 100) + '%'); });
+          setProg(0.93, 'AI is cutting it out… (' + (tries[i][1] === 'webgpu' ? 'graphics card' : 'processor — can take 1–2 minutes') + ')'); await tick();
+          var out = await aiRun(sess, f, [1, 3, 1024, 1024]), dm = out.dims, h = dm[dm.length - 2], w = dm[dm.length - 1], g = new Uint8Array(w * h);
+          for (var k = 0; k < w * h; k++) g[k] = 255 / (1 + Math.exp(-out.data[k]));
+          return rawFromGray(g, w, h, 1);
+        } catch (e) { console.warn('AI Pro attempt failed', tries[i], e); last = e; if (e && e.notInstalled) throw e; }
       }
       throw last || new Error('AI Pro failed');
+    }
+    async function runLite() {
+      setProg(0.01, 'Loading AI Lite…');
+      var sess = await aiSession('u2netp', 'wasm', function (p) { setProg(p * 0.8, 'Loading AI Lite… ' + Math.round(p * 100) + '%'); });
+      setProg(0.85, 'AI Lite is cutting it out…'); await tick();
+      var out = await aiRun(sess, imageTensor(proc, 320, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]), [1, 3, 320, 320]);
+      var dm = out.dims, h = dm[dm.length - 2], w = dm[dm.length - 1], mn = Infinity, mx = -Infinity, k, g = new Uint8Array(w * h);
+      for (k = 0; k < w * h; k++) { mn = Math.min(mn, out.data[k]); mx = Math.max(mx, out.data[k]); }
+      for (k = 0; k < w * h; k++) g[k] = 255 * (out.data[k] - mn) / Math.max(1e-6, mx - mn);
+      return rawFromGray(g, w, h, 1);
     }
     function rawFromGray(d, w, h, ch) {
       var c = PixFX.mk(w, h), g = c.getContext('2d'), id = g.createImageData(w, h);
@@ -548,20 +593,6 @@
       g.putImageData(id, 0, 0);
       var big = PixFX.mk(PW, PH), bg = big.getContext('2d'); bg.imageSmoothingQuality = 'high'; bg.drawImage(c, 0, 0, PW, PH);
       return PixFX.Mask.fromGray(big);
-    }
-    async function runImgly() {
-      setProg(0.01, 'Loading AI Fast…');
-      var mod = await import(LIBS.bg);
-      var fn = mod.removeBackground || (mod.default && mod.default.removeBackground) || mod.default;
-      var blob = await fn(await canvasBlob(proc, 'image/png'), {
-        model: S.model, output: { format: 'image/png', type: 'mask' },
-        progress: function (key, cur, tot) { var f = tot ? cur / tot : 0; setProg(f, /fetch/.test(key) ? 'Downloading AI model… ' + Math.round(f * 100) + '%' : 'Working… ' + Math.round(f * 100) + '%'); }
-      });
-      var res = await PixFX.loadImage(blob), rc = PixFX.mk(PW, PH), g = rc.getContext('2d'); g.drawImage(res, 0, 0, PW, PH);
-      var d = g.getImageData(0, 0, PW, PH).data, a = new Float32Array(PW * PH), anyAlpha = false;
-      for (var i = 0; i < PW * PH; i++) if (d[i * 4 + 3] < 250) { anyAlpha = true; break; }
-      for (i = 0; i < PW * PH; i++) a[i] = anyAlpha ? d[i * 4 + 3] / 255 : d[i * 4] / 255;
-      return a;
     }
     function quickMask() {
       var d = procData, w = PW, h = PH, N = w * h, seen = new Uint8Array(N), q = new Int32Array(N), qh = 0, qt = 0, x, y, i;
@@ -677,6 +708,7 @@
     return new Blob(parts, { type: 'audio/wav' });
   }
   async function encodeMP3(buf, kbps, onP) {
+    if (!window.lamejs) { try { await loadScript('assets/vendor/lame.min.js'); } catch (e0) { } }
     if (!window.lamejs) { try { await loadScript(LIBS.lame); } catch (e) { throw new Error('The MP3 encoder couldn\'t download (check your internet) — WAV still works.'); } }
     if (!window.lamejs || !window.lamejs.Mp3Encoder) throw new Error('MP3 encoder failed to load (check your connection) — WAV still works.');
     var ch = Math.min(2, buf.numberOfChannels), enc = new window.lamejs.Mp3Encoder(ch, buf.sampleRate, kbps), out = [];
