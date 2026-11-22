@@ -222,7 +222,9 @@
   function normalize(c) {
     c = c && typeof c === 'object' ? c : {};
     ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement', 'music', 'icons', 'game', 'tools', 'editor'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
-    ['assets', 'textures', 'templates', 'hiddenTemplates', 'fonts'].forEach(function (k) { if (!Array.isArray(c.editor[k])) c.editor[k] = []; });
+    ['assets', 'textures', 'templates', 'hiddenTemplates', 'fonts', 'midiSkins', 'hiddenSkins'].forEach(function (k) { if (!Array.isArray(c.editor[k])) c.editor[k] = []; });
+    if (typeof c.editor.defaultSkin !== 'string') c.editor.defaultSkin = 'site';
+    c.editor.midiSkins.forEach(function (a) { if (!a.id) a.id = uid('sk'); });
     c.editor.fonts.forEach(function (a) { if (!a.id) a.id = uid('ef'); });
     if (!c.editor.cloud || typeof c.editor.cloud !== 'object') c.editor.cloud = { enabled: true, url: '', anonKey: '', bucket: 'projects' };
     c.editor.assets.forEach(function (a) { if (!a.id) a.id = uid('ea'); }); c.editor.textures.forEach(function (a) { if (!a.id) a.id = uid('et'); }); c.editor.templates.forEach(function (a) { if (!a.id) a.id = uid('etp'); });
@@ -1770,6 +1772,26 @@
       el('div', { class: 'note', html: '<b>Make your own templates</b> right here: press <b>✚ Make a template</b>, build the video in the editor (use any pictures, videos, songs, MIDI and fonts), select the things people should swap and switch on <b>“Template slot”</b>, then press <b>✓ SAVE TEMPLATE</b>. Your files are uploaded with the next <b>Publish</b>.' }),
       el('div', { class: 'add-row', style: 'margin:10px 0' }, tplNew, tplUp), clist,
       el('div', { class: 'note', html: 'Starter templates (click to switch on/off):' }), tg));
+    // MIDI skins
+    var SKB = [['site', 'Site theme'], ['notes', 'Notes only'], ['studio', 'Dark studio'], ['neon', 'Neon'], ['clean', 'Clean white'], ['pixel', 'Pixel arcade'], ['glass', 'Glass']], hs = ED.hiddenSkins;
+    var skg = el('div', { class: 'preset-grid' }, SKB.map(function (t) {
+      var off = hs.indexOf(t[0]) >= 0;
+      return el('button', { class: 'preset', type: 'button', style: off ? 'border-style:dashed;opacity:.55' : 'border-color:#ff3fc8', onclick: function () { var i = hs.indexOf(t[0]); if (i >= 0) hs.splice(i, 1); else hs.push(t[0]); changed(); renderTab(); } }, el('b', { text: (off ? '✕ ' : '✓ ') + t[1] }));
+    }));
+    var sklist = listEditor(ED.midiSkins, { key: 'eskin', noDup: true,
+      title: function (x) { return (x.name || 'Skin') + (x.enabled === false ? '  (hidden)' : '') + (ED.defaultSkin === x.id ? '  ★ default' : ''); }, sub: function (x) { return x.props && x.props._from ? 'made from a ' + x.props._from : ''; },
+      hidden: function (x) { return x.enabled === false; },
+      body: function (x, c, hh) { add(c, [fToggle(x, 'enabled', 'People can use it', { defOn: true, after: hh }), fText(x, 'name', 'Skin name', { after: hh }),
+        el('button', { class: 'ab small', type: 'button', text: ED.defaultSkin === x.id ? '★ This is the default skin' : '★ Make it the default for new MIDI visuals', onclick: function () { ED.defaultSkin = x.id; changed(); renderTab(); } })]); },
+      empty: 'No skins of your own yet — press “Make a MIDI skin”.' });
+    var defOpts = SKB.filter(function (t) { return hs.indexOf(t[0]) < 0; }).concat(ED.midiSkins.filter(function (x) { return x.enabled !== false; }).map(function (x) { return [x.id, x.name || 'Skin']; }));
+    var defSel = el('select', { onchange: function () { ED.defaultSkin = this.value; changed(); renderTab(); } }, defOpts.map(function (o) { var op = el('option', { value: o[0], text: o[1] }); if (o[0] === ED.defaultSkin) op.selected = true; return op; }));
+    add(E, group('MIDI skins', 'the looks for piano rolls, drum grids & note visuals',
+      el('div', { class: 'note', html: '<b>Make your own:</b> press <b>✚ Make a MIDI skin</b>, change the piano roll / drum grid in <b>🎹 MIDI look</b> (colours, outlines, background, what shows…), then press <b>✚ Save this look as a site skin</b>. You can also do that from the template maker. Then Publish.' }),
+      el('div', { class: 'add-row', style: 'margin:10px 0' }, el('button', { class: 'ab primary', type: 'button', text: '✚ Make a MIDI skin', onclick: function () { openTemplateMaker(null, function () { renderTab(); }, 'skin'); } })),
+      sklist,
+      el('div', { class: 'note', html: 'Built-in skins (click to switch on/off):' }), skg,
+      el('div', { class: 'field' }, el('label', { text: 'Default skin for new MIDI visuals' }), defSel)));
     // accounts
     var C2 = ED.cloud;
     add(E, group('Logins (save edits online)', 'optional — free Supabase account',
@@ -1782,7 +1804,7 @@
       el('button', { class: 'ab small', type: 'button', text: '⧉ Copy setup code', onclick: function () { (navigator.clipboard ? navigator.clipboard.writeText(SB_SQL) : Promise.reject()).then(function () { toast('Copied ✦', 'ok'); }, function () { toast('Select the text and copy it'); }); } })));
   };
   /* ---------- 🎬 template maker: the real editor in a full-screen overlay ---------- */
-  var EDITOR_V = '5.1';
+  var EDITOR_V = '5.2';
   function loadShortEditor() {
     if (window.ShortEditor && window.ShortEditor._EP && window.ShortEditor._EP.saveTemplate) return Promise.resolve();
     if (!document.querySelector('link[data-editor-css]')) { var lk = document.createElement('link'); lk.rel = 'stylesheet'; lk.href = '../assets/css/editor.css?v=' + EDITOR_V; lk.setAttribute('data-editor-css', ''); document.head.appendChild(lk); }
@@ -1790,7 +1812,7 @@
       return p.then(function () { return new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = '../assets/js/editor/' + f + '?v=' + EDITOR_V; sc.onload = res; sc.onerror = function () { rej(new Error('Could not load ' + f)); }; document.head.appendChild(sc); }); });
     }, Promise.resolve());
   }
-  function openTemplateMaker(tpl, after) {
+  function openTemplateMaker(tpl, after, mode) {
     var ov = el('div', { class: 'tpl-maker' }), mount = el('div', { class: 'tpl-maker-in' }, el('div', { class: 'se-loading', text: 'Loading the editor…' }));
     ov.appendChild(mount); document.body.appendChild(ov); document.body.style.overflow = 'hidden';
     var dirtyCheck = null;
@@ -1798,9 +1820,15 @@
     loadShortEditor().then(function () {
       mount.innerHTML = '';
       var api = { asset: assetUrl, burst: function () { }, toast: function (m) { toast(m); } };
+      var skinMode = mode === 'skin', start = tpl && tpl.json ? tpl.json : null;
+      if (skinMode) {
+        var C0 = window.ShortCore; start = C0.newProject({ name: 'MIDI skin maker' }); start.duration = 12; start.autoLength = false; start.bpm = 140;
+        start.layers = [C0.newElement('pianoroll', start, { x: 540, y: 620, w: 980, h: 620 }), C0.newElement('stepgrid', start, { x: 540, y: 1380, w: 980, h: 520 })];
+      }
       var ed = window.ShortEditor.mount(mount, S.cfg, api, {
-        builder: true, project: tpl && tpl.json ? tpl.json : null,
-        onClose: function () { if (ed && ed.dirty && !confirm('Close without saving the template?')) return; close(); },
+        builder: true, skinMode: skinMode, project: start,
+        onSkin: function (sk) { S.cfg.editor.midiSkins.push({ id: sk.id, name: sk.name, enabled: true, props: sk.props }); changed(); toast('Skin “' + sk.name + '” saved ✦ — press Publish to put it on the site', 'ok', 5000); },
+        onClose: function () { if (!skinMode && ed && ed.dirty && !confirm('Close without saving the template?')) return; close(); },
         onSave: function (out) {
           var P = out.project, ids = Object.keys(out.blobs), n = 0;
           ed.toast('Uploading ' + ids.length + ' file(s)…');

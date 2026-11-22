@@ -1020,9 +1020,32 @@
     }
     return o;
   }
+  /* custom skins (made by the site owner, or saved by people in their own browser) */
+  var CUSTOM = [], HIDDEN = [], DEF_SKIN = 'site';
+  function setSkins(custom, hidden, def) {
+    CUSTOM = (custom || []).filter(function (k) { return k && k.id && k.props; });
+    HIDDEN = Array.isArray(hidden) ? hidden.slice() : [];
+    var all = skinList(); DEF_SKIN = def && all.some(function (k) { return k[0] === def; }) ? def : all.some(function (k) { return k[0] === 'site'; }) ? 'site' : all.length ? all[0][0] : 'site';
+  }
+  function skinList() {
+    return SKIN_LIST.filter(function (k) { return HIDDEN.indexOf(k[0]) < 0; }).concat(CUSTOM.map(function (k) { return [k.id, k.name || 'Skin', k]; }));
+  }
+  var SKIN_SKIP = ['midi', 'track', 'channel', 'lowNote', 'highNote', 'padNotes', 'label', 'mode', 'beats', 'steps', 'stepLen', 'maxRows', 'direction', 'look', 'playheadPos', 'layout', 'count', 'life', 'size', 'brand', 'preset', 'knobs'];
+  // the look of a MIDI visual, as a skin that also works on the other MIDI visuals
+  function skinFromEl(el) {
+    var def = T[el.type], o = {}; if (!def) return o;
+    Object.keys(def.defaults).forEach(function (k) { if (SKIN_SKIP.indexOf(k) < 0) o[k] = JSON.parse(JSON.stringify(el[k])); });
+    function cp(a, b) { if (o[a] !== undefined && o[b] === undefined) o[b] = JSON.parse(JSON.stringify(o[a])); }
+    if (el.type === 'pianoroll' || el.type === 'falling') { cp('noteFill', 'cellFill'); cp('noteFill', 'burstFill'); cp('activeColor', 'hitColor'); cp('noteStroke', 'cellStroke'); cp('noteStrokeColor', 'cellStrokeColor'); cp('noteRadius', 'cellRadius'); cp('noteGlow', 'glow'); cp('noteRadius', 'radius'); cp('glow', 'noteGlow'); cp('radius', 'noteRadius'); cp('keyboard', 'keys'); cp('keys', 'keyboard'); cp('showGrid', 'showLines'); }
+    if (el.type === 'stepgrid') { cp('cellFill', 'noteFill'); cp('cellFill', 'burstFill'); cp('hitColor', 'activeColor'); cp('cellStroke', 'noteStroke'); cp('cellStrokeColor', 'noteStrokeColor'); cp('cellRadius', 'noteRadius'); cp('cellRadius', 'radius'); }
+    if (el.type === 'noteburst') { cp('burstFill', 'noteFill'); cp('burstFill', 'cellFill'); }
+    o._from = el.type;
+    return o;
+  }
   function applySkin(el, id) {
     var def = T[el.type]; if (!def) return el;
-    var o = skinProps(id, el.type);
+    var cu = null; for (var i = 0; i < CUSTOM.length; i++) if (CUSTOM[i].id === id) cu = CUSTOM[i];
+    var o = cu ? (el.type === 'plugin' && cu.props._from !== 'plugin' ? {} : cu.props) : skinProps(id, el.type);
     Object.keys(o).forEach(function (k) { if (k in def.defaults) el[k] = JSON.parse(JSON.stringify(o[k])); });
     el.skin = id; return el;
   }
@@ -1223,7 +1246,7 @@
     var def = T[type], W = P.w, H = P.h;
     var size = { text: [W * 0.85, H * 0.12], image: [W * 0.6, W * 0.6], video: [W, H], shape: [W * 0.3, W * 0.3], pianoroll: [W * 0.9, H * 0.3], stepgrid: [W * 0.9, H * 0.25], falling: [W, H * 0.5], noteburst: [W, H * 0.5], spectrum: [W * 0.85, H * 0.15], waveform: [W * 0.85, H * 0.12], player: [W * 0.85, W * 0.5], plugin: [W * 0.6, W * 0.33], progress: [W * 0.8, Math.max(12, H * 0.012)], timer: [W * 0.5, H * 0.06], sparkles: [W, H], adjust: [W, H] }[type] || [W * 0.5, H * 0.2];
     var el = Object.assign({ id: uid('el'), type: type, name: def.label, start: 0, end: Math.max(1, P.duration || 10), anim: newAnim() }, JSON.parse(JSON.stringify(BASE)), { x: W / 2, y: H / 2, w: size[0], h: size[1] }, JSON.parse(JSON.stringify(def.defaults)));
-    if (def.midi) applySkin(el, (extra && extra.skin) || 'site');
+    if (def.midi) applySkin(el, (extra && extra.skin) || DEF_SKIN);
     Object.assign(el, extra || {});
     if (extra && extra.anim) el.anim = upgradeAnim(extra.anim);
     return el;
@@ -1315,7 +1338,7 @@
   window.ShortCore = {
     T: T, TEMPLATES: TEMPLATES, FONTS: FONTS, IN_ANIMS: IN_ANIMS, LOOP_ANIMS: LOOP_ANIMS, TRANSITIONS: TRANSITIONS, FX: FX, FX_CATS: FX_CATS, EASE_PRESETS: EASE_PRESETS, SPEED_PRESETS: SPEED_PRESETS, KF_PROPS: KF_PROPS, RATIOS: RATIOS,
     parseMidi: parseMidi, demoMidi: demoMidi, Analysis: Analysis, midiNotes: midiNotes, filterNotes: filterNotes, beatPos: beatPos, beatEnv: beatEnv,
-    SKINS: SKIN_LIST, applySkin: applySkin, setTheme: setTheme, THEME: THEME,
+    SKINS: SKIN_LIST, skinList: skinList, setSkins: setSkins, skinFromEl: skinFromEl, applySkin: applySkin, setTheme: setTheme, THEME: THEME,
     renderFrame: renderFrame, newProject: newProject, newElement: newElement, newAnim: newAnim, upgrade: upgrade, contentEnd: contentEnd, uid: uid, ensureFont: ensureFont, addFontFace: addFontFace, fmtTime: fmtTime, mk: mk, clamp: clamp, noteName: noteName,
     fill: fill, colorAt: colorAt, paint: paint, easeFn: easeFn, kfValue: kfValue, prop: prop, fxDefaults: fxDefaults, runFx: runFx,
     speedAt: speedAt, avgSpeed: avgSpeed, srcTime: srcTime, setLengthFromSpeed: setLengthFromSpeed, audioSources: audioSources, scheduleAudio: scheduleAudio, renderMix: renderMix, ratioDims: ratioDims, MP4: MP4

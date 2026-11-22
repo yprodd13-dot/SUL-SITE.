@@ -78,7 +78,7 @@
     this.root.innerHTML =
       '<div class="se' + (B ? ' se-builder' : '') + '">' +
       '<div class="se-top">' +
-      '<div class="se-brand"><b>SHORT</b><span>EDITOR</span>' + (B ? '<em>TEMPLATE MAKER</em>' : '') + '</div>' +
+      '<div class="se-brand"><b>SHORT</b><span>EDITOR</span>' + (B ? '<em>' + (this.opts.skinMode ? 'MIDI SKIN MAKER' : 'TEMPLATE MAKER') + '</em>' : '') + '</div>' +
       '<input class="se-name" type="text" maxlength="60" aria-label="Project name" title="Project name">' +
       '<label class="se-ratio" title="Video shape"><select data-ratio>' + C.RATIOS.map(function (r) { return '<option value="' + r[0] + '">' + r[0] + ' · ' + r[1] + '</option>'; }).join('') + '</select></label>' +
       '<div class="se-bpm" title="Tempo — everything that moves on the beat follows this"><label>BPM <input type="number" min="40" max="300" step="0.1" data-bpm></label><button type="button" data-tap title="Tap along to the music">TAP</button><button type="button" data-detect title="Guess the BPM from your audio">AUTO</button></div>' +
@@ -86,7 +86,7 @@
       '<div class="se-topbtns"><button type="button" data-undo title="Undo (Ctrl+Z)">↶</button><button type="button" data-redo title="Redo (Ctrl+Shift+Z)">↷</button>' +
       '<button type="button" data-layout title="Workspace: panel sizes, swap sides, reset">⚙ LAYOUT</button>' +
       (B ? '' : '<button type="button" data-projects>📁 PROJECTS</button><button type="button" data-save>💾 SAVE</button><button type="button" data-login hidden>☁ LOG IN</button>') +
-      (B ? '<button type="button" class="se-export" data-savetpl>✓ SAVE TEMPLATE</button><button type="button" data-closeb>✕ CLOSE</button>' : '<button type="button" class="se-export" data-export>⬇ EXPORT</button>') +
+      (B ? (this.opts.skinMode ? '' : '<button type="button" class="se-export" data-savetpl>✓ SAVE TEMPLATE</button>') + '<button type="button" data-closeb>✕ CLOSE</button>' : '<button type="button" class="se-export" data-export>⬇ EXPORT</button>') +
       '</div></div>' +
       '<div class="se-body">' +
       '<nav class="se-rail" role="tablist">' + RAIL.map(function (t) { return '<button type="button" role="tab" data-tab="' + t[0] + '" title="' + t[2] + '"><i>' + t[1] + '</i><span>' + t[2] + '</span></button>'; }).join('') + '</nav>' +
@@ -116,7 +116,7 @@
     var R = this.root;
     this.box = R.querySelector('.se'); this.cv = R.querySelector('.se-stage'); this.wrap = R.querySelector('.se-stagewrap'); this.selBox = R.querySelector('.se-sel');
     this.panel = R.querySelector('.se-panel'); this.insp = R.querySelector('.se-insp'); this.tlInner = R.querySelector('.se-tlinner'); this.tlScroll = R.querySelector('.se-tlscroll');
-    this.applyWS(); C.setTheme(this.cfg.theme);
+    this.applyWS(); C.setTheme(this.cfg.theme); this.loadSkins();
     // top bar
     R.querySelector('.se-name').addEventListener('input', function (e) { self.P.name = e.target.value; self.changed({ quiet: true }); });
     R.querySelector('[data-ratio]').addEventListener('change', function (e) { self.setRatio(e.target.value); });
@@ -139,7 +139,7 @@
       var lg = R.querySelector('[data-login]');
       if (this.cloud && this.cloud.ok) { lg.hidden = false; lg.addEventListener('click', function () { self.cloudDialog(); }); this.updateLogin(); }
     } else {
-      R.querySelector('[data-savetpl]').addEventListener('click', function () { self.saveTemplate(); });
+      if (R.querySelector('[data-savetpl]')) R.querySelector('[data-savetpl]').addEventListener('click', function () { self.saveTemplate(); });
       R.querySelector('[data-closeb]').addEventListener('click', function () { if (self.opts.onClose) self.opts.onClose(); });
     }
     R.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () { var tb = b.getAttribute('data-tab'); if (self.tab === tb && self.ws.leftOpen) { self.ws.leftOpen = false; } else { self.tab = tb; self.ws.leftOpen = true; } self.applyWS(true); self.renderPanel(); }); });

@@ -382,17 +382,42 @@
     if (el.type !== 'plugin' || true) {
       var sk = h('div', { class: 'se-sec' }); sk.appendChild(h('div', { class: 'se-fh big' }, 'Skins <small>one click — then change anything below</small>'));
       var g = h('div', { class: 'se-skins' });
-      C.SKINS.forEach(function (sd) {
-        var b = h('button', { type: 'button', class: 'se-skin' + (el.skin === sd[0] ? ' on' : ''), title: sd[1] }, '<canvas></canvas><b>' + E(sd[1]) + '</b>');
-        b.addEventListener('click', function () { C.applySkin(el, sd[0]); self.changed({ tl: true, insp: true }); self.toast(sd[0] === 'notes' ? 'Notes only — the background, keys and lines are hidden' : 'Skin: ' + sd[1]); });
+      C.skinList().forEach(function (sd) {
+        var mine = sd[2] && sd[2].mine, b = h('button', { type: 'button', class: 'se-skin' + (el.skin === sd[0] ? ' on' : ''), title: sd[1] }, '<canvas></canvas><b>' + E(sd[1]) + '</b>' + (mine ? '<em title="Delete my skin">✕</em>' : ''));
+        b.addEventListener('click', function (e) {
+          if (e.target.tagName === 'EM') { e.stopPropagation(); if (!confirm('Delete your skin “' + sd[1] + '”?')) return; self.deleteMySkin(sd[0]); return; }
+          C.applySkin(el, sd[0]); self.changed({ tl: true, insp: true }); self.toast(sd[0] === 'notes' ? 'Notes only — the background, keys and lines are hidden' : 'Skin: ' + sd[1]);
+        });
         g.appendChild(b);
         setTimeout(function () { self.skinPreview(b.querySelector('canvas'), el, sd[0]); }, 20);
       });
-      sk.appendChild(g); body.appendChild(sk);
+      sk.appendChild(g);
+      var sr = h('div', { class: 'se-btnrow' }), sv = h('button', { type: 'button', class: 'se-btn hot' }, this.opts.builder ? '✚ Save this look as a site skin' : '✚ Save this look as my skin');
+      sv.addEventListener('click', function () { self.saveSkin(el); });
+      sr.appendChild(sv); sk.appendChild(sr);
+      sk.appendChild(h('small', { class: 'se-help' }, this.opts.builder ? 'Site skins show up for everyone. Rename, delete or switch skins off in the admin (🎬 Short Editor → MIDI skins).' : 'Your skins are saved in this browser and work on every MIDI visual.'));
+      body.appendChild(sk);
     }
     var look = h('div', { class: 'se-sec' });
     this.form(look, MIDI_LOOK[el.type], el, function (k, l) { if (!l && k !== 'skin') el.skin = ''; ch(k, l); if (!l && /^(panel|titleBar|frame|offsetShadow|noteStroke|cellStroke|keys|keyboard|showLines|showOff|mode)$/.test(k)) self.renderInspector(); }, def.defaults);
     body.appendChild(look);
+  };
+  var MY_SKINS = 'sul.short.myskins';
+  function mySkins() { try { var l = JSON.parse(localStorage.getItem(MY_SKINS) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+  EP.loadSkins = function () {
+    var ec = this.cfg.editor || {}, site = (ec.midiSkins || []).filter(function (k) { return k && k.enabled !== false; }), mine = this.opts.builder ? [] : mySkins().map(function (k) { k.mine = true; return k; });
+    C.setSkins(site.concat(mine), ec.hiddenSkins || [], ec.defaultSkin || 'site');
+  };
+  EP.saveSkin = function (el) {
+    var name = prompt('Name for this skin?', ''); if (name == null) return; name = name.trim().slice(0, 30) || 'My skin';
+    var sk = { id: C.uid('sk'), name: name, props: C.skinFromEl(el) };
+    if (this.opts.builder) { if (this.opts.onSkin) this.opts.onSkin(sk); }
+    else { var l = mySkins(); l.push(sk); try { localStorage.setItem(MY_SKINS, JSON.stringify(l)); } catch (e) { return this.toast('Couldn\'t save the skin (browser storage is full)', true); } this.toast('Skin “' + name + '” saved ✦'); }
+    this.loadSkins(); el.skin = sk.id; this.renderInspector();
+  };
+  EP.deleteMySkin = function (id) {
+    try { localStorage.setItem(MY_SKINS, JSON.stringify(mySkins().filter(function (k) { return k.id !== id; }))); } catch (e) { }
+    this.loadSkins(); this.renderInspector(); this.toast('Skin deleted');
   };
   EP.skinPreview = function (cv, el, id) {
     try {
