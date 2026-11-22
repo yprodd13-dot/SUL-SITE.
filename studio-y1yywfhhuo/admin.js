@@ -180,6 +180,17 @@
   function uploadFile(file, allowVideo, kind) {
     var isImage = /^image\//.test(file.type), isVideo = /^video\//.test(file.type);
     var isAudio = /^audio\//.test(file.type) || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(file.name || '');
+    if (kind === 'any' || kind === 'font') {
+      var isFont = /\.(ttf|otf|woff2?)$/i.test(file.name || ''), isMidi = /\.(midi?)$/i.test(file.name || '');
+      if (kind === 'font' && !isFont) { toast('Pick a font file (.ttf, .otf, .woff, .woff2)', 'bad'); return Promise.resolve(null); }
+      if (isFont || isMidi || (isAudio && !isVideo)) {
+        if (file.size > 20 * 1024 * 1024) { toast('“' + file.name + '” is over 20 MB — please use a smaller file', 'bad', 5000); return Promise.resolve(null); }
+        var nm = slug(String(file.name || 'file').replace(/\.[^.]+$/, '')) || 'file', ex = (String(file.name).match(/\.[a-z0-9]+$/i) || ['.bin'])[0].toLowerCase();
+        var pth = 'uploads/' + nm + '-' + Date.now().toString(36) + ex;
+        return readDataUrl(file).then(function (data) { S.assets[pth] = data; pendingMeta[pth] = { committed: false, t: Date.now() }; return idbPut(pth, { data: data, committed: false, t: Date.now() }).then(function () { return pth; }); });
+      }
+      allowVideo = true; kind = '';
+    }
     if (kind === 'audio') {
       if (!isAudio) { toast('Pick an audio file (mp3, wav, ogg, m4a)', 'bad'); return Promise.resolve(null); }
       if (file.size > 20 * 1024 * 1024) { toast('That song is over 20 MB — export it as an mp3 (192 kbps) to make it smaller', 'bad', 5000); return Promise.resolve(null); }
@@ -211,7 +222,8 @@
   function normalize(c) {
     c = c && typeof c === 'object' ? c : {};
     ['meta', 'brand', 'intro', 'theme', 'background', 'animations', 'header', 'footer', 'announcement', 'music', 'icons', 'game', 'tools', 'editor'].forEach(function (k) { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k])) c[k] = {}; });
-    ['assets', 'textures', 'templates', 'hiddenTemplates'].forEach(function (k) { if (!Array.isArray(c.editor[k])) c.editor[k] = []; });
+    ['assets', 'textures', 'templates', 'hiddenTemplates', 'fonts'].forEach(function (k) { if (!Array.isArray(c.editor[k])) c.editor[k] = []; });
+    c.editor.fonts.forEach(function (a) { if (!a.id) a.id = uid('ef'); });
     if (!c.editor.cloud || typeof c.editor.cloud !== 'object') c.editor.cloud = { enabled: true, url: '', anonKey: '', bucket: 'projects' };
     c.editor.assets.forEach(function (a) { if (!a.id) a.id = uid('ea'); }); c.editor.textures.forEach(function (a) { if (!a.id) a.id = uid('et'); }); c.editor.templates.forEach(function (a) { if (!a.id) a.id = uid('etp'); });
     if (!c.tools.items || typeof c.tools.items !== 'object' || Array.isArray(c.tools.items)) c.tools.items = {};
@@ -1660,7 +1672,7 @@
     add(E, el('div', { class: 'note', html: '<b>Good to know:</b> everything in the tools runs inside visitors’ browsers. The AI (≈115–225 MB) loads from your own site the first time someone uses AI Pro, then it’s saved in their browser.' }));
   };
   /* ---------- 🎬 Short Editor ---------- */
-  var SE_TEMPLATES = [['preset-breakdown', 'Preset breakdown'], ['drum-grid', 'Drum grid'], ['pink-player', 'Pink player'], ['waveform-stack', 'Waveform stack'], ['neon-keys', 'Neon keys'], ['cover-pulse', 'Cover pulse'], ['chrome-lyrics', 'Y2K lyrics'], ['pixel-arcade', 'Pixel arcade'], ['blank', 'Blank']];
+  var SE_TEMPLATES = [['blank', 'Blank'], ['midi-pink', 'MIDI roll (pink)'], ['neon-keys', 'Neon keys']];
   function editorPage() { return S.cfg.pages.filter(function (p) { return p.sections.some(function (s) { return s.type === 'editor'; }); })[0]; }
   function addEditorPage() {
     var id = uniquePageId('short-editor');
@@ -1679,20 +1691,35 @@
       : el('div', null, el('div', { class: 'note warn', text: 'The editor isn’t on any page right now.' }), el('button', { class: 'ab primary small', type: 'button', text: '+ Add the SHORT EDITOR page', onclick: function () { addEditorPage(); changed(); fillPageSelect(); renderTab(); } }))));
     // assets
     var alist = listEditor(ED.assets, { key: 'easset', noDup: true,
-      title: function (x) { return (x.name || String(x.src || '').split('/').pop() || '(asset)') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function (x) { return x.category || ''; },
+      title: function (x) { return (x.name || String(x.src || '').split('/').pop() || '(asset)') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function (x) { return (x.kind && x.kind !== 'image' ? x.kind + ' · ' : '') + (x.category || ''); },
       hidden: function (x) { return x.enabled === false; },
-      thumb: function (x) { return x.src ? { kind: 'img', url: assetUrl(x.src) } : null; },
-      body: function (x, c, h) { add(c, [fToggle(x, 'enabled', 'People can use it', { defOn: true, after: h }), row(fText(x, 'name', 'Name', { after: h }), fText(x, 'category', 'Group (e.g. Characters, Stickers, Frames)', { after: h })), fImage(x, 'src', 'Picture (PNG with transparency works best)', { after: h })]); },
-      empty: 'No assets yet — upload your characters, stickers, frames, logos…' });
-    var up = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload assets', onclick: function () {
-      pickFiles('image/*', true).then(function (files) {
+      thumb: function (x) { return x.src && (!x.kind || x.kind === 'image') ? { kind: 'img', url: assetUrl(x.src) } : x.kind === 'video' ? { kind: 'video', url: assetUrl(x.src) } : null; },
+      body: function (x, c, h) { add(c, [fToggle(x, 'enabled', 'People can use it', { defOn: true, after: h }), row(fText(x, 'name', 'Name', { after: h }), fText(x, 'category', 'Group (e.g. Characters, Stickers, Sounds)', { after: h })), (!x.kind || x.kind === 'image') ? fImage(x, 'src', 'Picture (PNG with transparency works best)', { after: h }) : el('div', { class: 'note', text: 'File: ' + x.src })]); },
+      empty: 'No assets yet — upload your characters, stickers, frames, logos, video loops, sounds…' });
+    var up = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload assets (pictures, videos, sounds)', onclick: function () {
+      pickFiles('image/*,video/*,audio/*', true).then(function (files) {
         if (!files.length) return; var seq = Promise.resolve(), n = 0;
-        files.forEach(function (f) { seq = seq.then(function () { return uploadFile(f, false).then(function (p) { if (p) { ED.assets.push({ id: uid('ea'), name: f.name.replace(/\.[^.]+$/, '').slice(0, 30), category: '', src: p }); n++; } }); }); });
+        files.forEach(function (f) { seq = seq.then(function () { return uploadFile(f, true, 'any').then(function (p) { if (p) { var kind = /^video\//.test(f.type) ? 'video' : /^audio\//.test(f.type) || /\.(mp3|wav|ogg|m4a|flac)$/i.test(f.name) ? 'audio' : 'image'; ED.assets.push({ id: uid('ea'), name: f.name.replace(/\.[^.]+$/, '').slice(0, 30), category: '', src: p, kind: kind }); n++; } }); }); });
         seq.then(function () { changed(); alist.rerender(); toast(n + ' asset(s) added ✦', 'ok'); });
       });
     } });
-    add(E, group('Free assets panel', 'people drag these onto their video', el('div', { class: 'add-row', style: 'margin:0 0 10px' }, up), alist,
-      el('div', { class: 'note', html: 'Tip: put a group name on each asset to sort them into sections. Animated GIFs show as a still picture in videos.' })));
+    add(E, group('Free assets panel', 'people click or drag these into their video', el('div', { class: 'add-row', style: 'margin:0 0 10px' }, up), alist,
+      el('div', { class: 'note', html: 'Tip: put a group name on each asset to sort them into sections. Videos up to 45 MB, sounds up to 20 MB.' })));
+    // fonts
+    var flist = listEditor(ED.fonts, { key: 'efont', noDup: true,
+      title: function (x) { return (x.name || 'Font') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function (x) { return String(x.src || '').split('/').pop(); },
+      hidden: function (x) { return x.enabled === false; },
+      body: function (x, c, h) { add(c, [fToggle(x, 'enabled', 'People can use it', { defOn: true, after: h }), fText(x, 'name', 'Font name (shown in the font list)', { after: h })]); },
+      empty: 'No fonts uploaded — people get the free font list, and can upload their own fonts too.' });
+    var fup = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Upload fonts (.ttf .otf .woff .woff2)', onclick: function () {
+      pickFiles('.ttf,.otf,.woff,.woff2', true).then(function (files) {
+        if (!files.length) return; var seq = Promise.resolve(), n = 0;
+        files.forEach(function (f) { seq = seq.then(function () { return uploadFile(f, false, 'font').then(function (p) { if (p) { var nm = f.name.replace(/\.[^.]+$/, '').replace(/[^\w -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'My font'; var base = nm, k = 2; while (ED.fonts.some(function (q) { return q.name === nm; })) nm = base + ' ' + (k++); ED.fonts.push({ id: uid('ef'), name: nm, src: p, enabled: true }); n++; } }); }); });
+        seq.then(function () { changed(); flist.rerender(); toast(n + ' font(s) added ✦', 'ok'); });
+      });
+    } });
+    add(E, group('Fonts', 'shown at the top of every font list in the editor', el('div', { class: 'add-row', style: 'margin:0 0 10px' }, fup), flist,
+      el('div', { class: 'note', html: 'Only upload fonts you’re allowed to share (your own, or free/OFL fonts).' })));
     // textures
     var tlist = listEditor(ED.textures, { key: 'etex', noDup: true,
       title: function (x) { return (x.name || String(x.src || '').split('/').pop() || '(texture)') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function () { return ''; },
@@ -1716,29 +1743,33 @@
       return el('button', { class: 'preset', type: 'button', style: off ? 'border-style:dashed;opacity:.55' : 'border-color:#ff3fc8', onclick: function () { var i = hid.indexOf(t[0]); if (i >= 0) hid.splice(i, 1); else hid.push(t[0]); changed(); renderTab(); } }, el('b', { text: (off ? '✕ ' : '✓ ') + t[1] }));
     }));
     var clist = listEditor(ED.templates, { key: 'etpl', noDup: true,
-      title: function (x) { return x.name || 'Template'; }, sub: function (x) { return x.desc || ''; },
-      body: function (x, c, h) { add(c, [fText(x, 'name', 'Name', { after: h }), fText(x, 'desc', 'Short description', { after: h })]); },
-      empty: 'No templates of your own yet.' });
-    var tplUp = el('button', { class: 'ab primary small', type: 'button', text: '⬆ Add a template (.sulshort file)', onclick: function () {
+      title: function (x) { return (x.name || 'Template') + (x.enabled === false ? '  (hidden)' : ''); }, sub: function (x) { return x.desc || ((x.json && x.json.layers ? x.json.layers.length : 0) + ' layers'); },
+      hidden: function (x) { return x.enabled === false; },
+      thumb: function (x) { return x.thumb ? { kind: 'img', url: assetUrl(x.thumb) } : null; },
+      body: function (x, c, h) { add(c, [fToggle(x, 'enabled', 'People can use it', { defOn: true, after: h }), row(fText(x, 'name', 'Name', { after: h }), fText(x, 'desc', 'Short description', { after: h })),
+        el('button', { class: 'ab primary small', type: 'button', text: '✎ Edit in the template maker', onclick: function () { openTemplateMaker(x, function () { clist.rerender(); }); } })]); },
+      empty: 'No templates of your own yet — press “Make a template”.' });
+    var tplNew = el('button', { class: 'ab primary', type: 'button', text: '✚ Make a template', onclick: function () { openTemplateMaker(null, function () { clist.rerender(); }); } });
+    var tplUp = el('button', { class: 'ab small', type: 'button', text: '⬆ Add a template from a .sulshort file', onclick: function () {
       pickFiles('.sulshort,application/json', false).then(function (files) {
         var f = files[0]; if (!f) return;
         f.text().then(function (txt) {
           var j = JSON.parse(txt), P = j.project || j; if (!P || !Array.isArray(P.layers)) throw new Error('Not a SHORT EDITOR project');
-          var dropped = 0; P = JSON.parse(JSON.stringify(P));
-          Object.keys(P.media || {}).forEach(function (id) { var m = P.media[id]; if (!m.src) { dropped++; delete P.media[id]; } });
-          P.layers.forEach(function (l) { if (l.media && !(P.media || {})[l.media]) l.media = ''; });
-          if (P.audio && !(P.media || {})[P.audio]) P.audio = null;
-          P.midis = (P.midis || []).filter(function (m) { return (P.media || {})[m.id]; });
-          if (P.bg && P.bg.media && !(P.media || {})[P.bg.media]) P.bg.media = '';
-          ED.templates.push({ id: uid('etp'), name: P.name || f.name.replace(/\.[^.]+$/, ''), desc: '', json: P });
-          changed(); clist.rerender();
-          toast('Template added ✦' + (dropped ? ' (' + dropped + ' uploaded file(s) left out — they become empty slots people fill in)' : ''), 'ok', 6000);
+          var files2 = j.files || {}, ids = Object.keys(P.media || {}).filter(function (id) { return !P.media[id].src && files2[id]; });
+          return ids.reduce(function (pr, id) { return pr.then(function () { return fetch(files2[id]).then(function (r) { return r.blob(); }).then(function (b) { var m = P.media[id]; return uploadFile(new File([b], m.name || 'file', { type: b.type }), true, 'any').then(function (p) { if (p) m.src = p; }); }); }); }, Promise.resolve()).then(function () {
+            P = JSON.parse(JSON.stringify(P)); var dropped = 0;
+            Object.keys(P.media || {}).forEach(function (id) { if (!P.media[id].src) { dropped++; delete P.media[id]; } });
+            ED.templates.push({ id: uid('etp'), name: P.name || f.name.replace(/\.[^.]+$/, ''), desc: '', enabled: true, json: P });
+            changed(); clist.rerender();
+            toast('Template added ✦' + (dropped ? ' (' + dropped + ' file(s) couldn’t be added — they become empty slots)' : ''), 'ok', 6000);
+          });
         }).catch(function (e) { toast('Couldn’t read that file: ' + e.message, 'bad', 5000); });
       });
     } });
-    add(E, group('Templates', 'click to switch the free ones on/off', tg,
-      el('div', { class: 'note', html: 'Make your own: build a video in the SHORT EDITOR (use pictures from your <b>Free assets</b> so they stay in the template), then <b>📁 Projects → Download this project</b> and add that file here.' }),
-      el('div', { class: 'add-row', style: 'margin:10px 0' }, tplUp), clist));
+    add(E, group('Templates', null,
+      el('div', { class: 'note', html: '<b>Make your own templates</b> right here: press <b>✚ Make a template</b>, build the video in the editor (use any pictures, videos, songs, MIDI and fonts), select the things people should swap and switch on <b>“Template slot”</b>, then press <b>✓ SAVE TEMPLATE</b>. Your files are uploaded with the next <b>Publish</b>.' }),
+      el('div', { class: 'add-row', style: 'margin:10px 0' }, tplNew, tplUp), clist,
+      el('div', { class: 'note', html: 'Starter templates (click to switch on/off):' }), tg));
     // accounts
     var C2 = ED.cloud;
     add(E, group('Logins (save edits online)', 'optional — free Supabase account',
@@ -1750,6 +1781,47 @@
       el('textarea', { class: 'code-box', readonly: 'readonly', rows: '7', style: 'width:100%;font:12px monospace' }, SB_SQL),
       el('button', { class: 'ab small', type: 'button', text: '⧉ Copy setup code', onclick: function () { (navigator.clipboard ? navigator.clipboard.writeText(SB_SQL) : Promise.reject()).then(function () { toast('Copied ✦', 'ok'); }, function () { toast('Select the text and copy it'); }); } })));
   };
+  /* ---------- 🎬 template maker: the real editor in a full-screen overlay ---------- */
+  var EDITOR_V = '5';
+  function loadShortEditor() {
+    if (window.ShortEditor && window.ShortEditor._EP && window.ShortEditor._EP.saveTemplate) return Promise.resolve();
+    if (!document.querySelector('link[data-editor-css]')) { var lk = document.createElement('link'); lk.rel = 'stylesheet'; lk.href = '../assets/css/editor.css?v=' + EDITOR_V; lk.setAttribute('data-editor-css', ''); document.head.appendChild(lk); }
+    return ['core.js', 'cloud.js', 'ui.js', 'ui-insp.js', 'ui-io.js'].reduce(function (p, f) {
+      return p.then(function () { return new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = '../assets/js/editor/' + f + '?v=' + EDITOR_V; sc.onload = res; sc.onerror = function () { rej(new Error('Could not load ' + f)); }; document.head.appendChild(sc); }); });
+    }, Promise.resolve());
+  }
+  function openTemplateMaker(tpl, after) {
+    var ov = el('div', { class: 'tpl-maker' }), mount = el('div', { class: 'tpl-maker-in' }, el('div', { class: 'se-loading', text: 'Loading the editor…' }));
+    ov.appendChild(mount); document.body.appendChild(ov); document.body.style.overflow = 'hidden';
+    var dirtyCheck = null;
+    function close() { try { window.ShortEditor.unmount(); } catch (e) { } ov.remove(); document.body.style.overflow = ''; if (after) after(); }
+    loadShortEditor().then(function () {
+      mount.innerHTML = '';
+      var api = { asset: assetUrl, burst: function () { }, toast: function (m) { toast(m); } };
+      var ed = window.ShortEditor.mount(mount, S.cfg, api, {
+        builder: true, project: tpl && tpl.json ? tpl.json : null,
+        onClose: function () { if (ed && ed.dirty && !confirm('Close without saving the template?')) return; close(); },
+        onSave: function (out) {
+          var P = out.project, ids = Object.keys(out.blobs), n = 0;
+          ed.toast('Uploading ' + ids.length + ' file(s)…');
+          var seq = ids.reduce(function (pr, id) { return pr.then(function () { var m = P.media[id], b = out.blobs[id]; if (!m) return; return uploadFile(b instanceof File ? b : new File([b], m.name || 'file', { type: b.type || '' }), true, 'any').then(function (p) { if (p) { m.src = p; n++; } else throw new Error('“' + (m.name || 'a file') + '” couldn’t be uploaded (too big?)'); }); }); }, Promise.resolve());
+          seq.then(function () {
+            return new Promise(function (res) { out.thumb.toBlob(function (b) { res(b); }, 'image/jpeg', 0.82); }).then(function (b) { return b ? uploadFile(new File([b], 'template-thumb.jpg', { type: 'image/jpeg' }), false) : null; });
+          }).then(function (thumb) {
+            P.media = P.media || {}; Object.keys(P.media).forEach(function (id) { if (!P.media[id].src) delete P.media[id]; });
+            P.layers.forEach(function (l) { if (l.media && !P.media[l.media]) l.media = ''; });
+            P.audio = (P.audio || []).filter(function (a) { return P.media[a.media]; }); P.midis = (P.midis || []).filter(function (m) { return P.media[m.id]; });
+            if (tpl) { tpl.json = P; tpl.name = P.name || tpl.name; if (thumb) tpl.thumb = thumb; }
+            else { tpl = { id: uid('etp'), name: P.name || 'Template', desc: '', enabled: true, thumb: thumb || '', json: P }; S.cfg.editor.templates.push(tpl); }
+            ed.opts.project = P; ed.dirty = false;
+            changed(); toast('Template saved ✦ — press Publish to put it on the site', 'ok', 5000);
+            close();
+          }).catch(function (e) { ed.toast('⚠ ' + (e.message || e), true); });
+        }
+      });
+    }).catch(function (e) { mount.innerHTML = ''; mount.appendChild(el('div', { class: 'se-loading', text: 'The editor couldn’t load: ' + e.message })); mount.appendChild(el('button', { class: 'ab', type: 'button', text: 'Close', onclick: close })); });
+    void dirtyCheck;
+  }
   function addGamePage() {
     var id = uniquePageId('pixel-connect');
     S.cfg.pages.push({ id: id, title: 'PIXEL CONNECT', inNav: true, icon: 'star', sections: [
@@ -1900,7 +1972,12 @@
       if (!c.pages.some(function (p) { return (p.sections || []).some(function (s) { return s.type === 'editor'; }); })) addEditorPage();
       c.version = 4; changedAny = true;
     }
-    return v < 4 && changedAny;
+    if (v < 5) {
+      // new editor: the old starter templates are gone; the new starters start switched off (turn them on in 🎬 Short Editor)
+      c.editor.hiddenTemplates = ['midi-pink', 'neon-keys'];
+      c.version = 5; changedAny = true;
+    }
+    return v < 5 && changedAny;
   }
   function boot() {
     if (!window.crypto || !crypto.subtle) {

@@ -180,3 +180,9 @@ body.locked .topbar, body.locked .layout { display: none; }
 .gate-msg { min-height: 18px; font-size: 13px; color: var(--bad); font-weight: 600; }
 .shake { animation: shake .4s; }
 @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
+/* 🎬 template maker overlay (the real SHORT EDITOR, full screen) */
+.tpl-maker { position: fixed; inset: 0; z-index: 9000; background: #0d0a12; display: flex; }
+.tpl-maker-in { flex: 1; min-width: 0; display: flex; }
+.tpl-maker-in > .se { flex: 1; height: 100vh !important; margin: 0 !important; box-shadow: none !important; }
+.tpl-maker .se-loading { flex: 1; display: grid; place-items: center; color: #a594bb; font: 14px sans-serif; }

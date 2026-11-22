@@ -113,6 +113,19 @@ GitHub repo → **Actions** → **Install AI files** → **Run workflow**. It ta
 - **Optional logins** through a free Supabase account let people save projects online. The setup steps and SQL code are in the admin's 🎬 Short Editor tab.
 - **Export:** videos export at 720p or 1080p, 30 or 60 fps, as MP4 where the browser supports it and WebM otherwise. You can also save a single frame as a PNG.
 
+## What's new in v5: SHORT EDITOR rebuilt (works like CapCut)
+- **Timeline**: drag clips, trim both ends (videos and songs too), split (S), duplicate (Ctrl+D), delete (Del), undo/redo, right-click menu, snap to beats, zoom, reorder layers by dragging their name.
+- **Every setting has a slider.** Every colour can be solid, gradient (2–3 colours) or rainbow, and can flow / colour-cycle / pulse on the beat — including all the MIDI visuals.
+- **MIDI fixed** (FL Studio files with running status now read correctly). Each MIDI visual shows how many notes it's using.
+- **Effects**: 28 effects with their own settings. Drag one onto a clip, or onto empty space to make an **adjustment layer** that changes everything under it.
+- **Animations**: 30 in / out and 20 loop animations, each with time, strength and an **easing graph** you can shape. **Keyframes** for position, scale, rotation and opacity (◆ buttons).
+- **Speed**: steady speed or a **speed curve** with presets (Montage, Hero, Bullet, Jump cut, Flash in/out…).
+- **Video shape** (9:16, 16:9, 1:1, 4:5, …) from the top bar; Fit / Fill / Center buttons; zoom the preview.
+- **Workspace**: drag the panel edges to resize, double-click an edge to hide a panel, ⚙ LAYOUT to swap sides, make buttons bigger/smaller, or reset.
+- **Export**: frame-perfect MP4 (every frame is drawn, so it's smooth on any computer). Up to 4K, 24–60 fps.
+- **Admin → 🎬 Short Editor**: ✚ **Make a template** opens the editor inside the admin — build it, switch on **Template slot** for things people should replace, press ✓ SAVE TEMPLATE, then Publish. Upload **fonts** everyone can use, and assets can now be pictures, videos or sounds.
+- People can upload their own fonts, pictures, videos, songs and MIDI into their edits.
+
 ## Custom domain (sul4ever.xyz)
 The `CNAME` file tells GitHub Pages to serve the site at **sul4ever.xyz**. After uploading it:
 1. In the repo, go to **Settings → Pages → Custom domain**, enter `sul4ever.xyz` and press Save.
