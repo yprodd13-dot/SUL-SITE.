@@ -426,7 +426,7 @@
     {
       "id": "pixel-connect",
       "title": "PIXEL CONNECT",
-      "inNav": true,
+      "inNav": false,
       "icon": "star",
       "sections": [
         {
@@ -489,10 +489,25 @@
           "visible": true,
           "align": "center",
           "width": "full",
-          "spacing": "none",
-          "title": "",
+          "spacing": "small",
+          "title": "EDIT UR VIDS HERE <3",
           "subtitle": "",
-          "panel": true
+          "panel": false,
+          "scale": 100
+        },
+        {
+          "id": "s-v1rkg3lif",
+          "type": "tools",
+          "visible": true,
+          "align": "right",
+          "title": "CREATIVE {TOOLS}",
+          "subtitle": "Free tools — everything runs in your browser",
+          "style": "icons",
+          "showDesc": true,
+          "width": "full",
+          "spacing": "none",
+          "panel": true,
+          "scale": 100
         }
       ]
     }
