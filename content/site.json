@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "meta": {
     "title": "SUL0557 — Drum Kits, Cover Art & Edits",
     "description": "Hi I'm Sul and I make beats & visuals. Drum kits, cover art and edits.",
@@ -479,8 +479,8 @@
     },
     {
       "id": "short-editor",
-      "title": "SHORT EDITOR",
-      "inNav": false,
+      "title": "SHORT EDITOR (IM TRYING THIS)",
+      "inNav": true,
       "icon": "star",
       "sections": [
         {
@@ -903,14 +903,8 @@
     "textures": [],
     "templates": [],
     "hiddenTemplates": [
-      "drum-grid",
-      "preset-breakdown",
-      "waveform-stack",
       "neon-keys",
-      "pink-player",
-      "chrome-lyrics",
-      "cover-pulse",
-      "pixel-arcade"
+      "midi-pink"
     ],
     "cloud": {
       "enabled": true,
@@ -919,6 +913,12 @@
       "bucket": "projects"
     },
     "builtinTextures": true,
-    "useToolTextures": true
+    "useToolTextures": true,
+    "fonts": [],
+    "midiSkins": [],
+    "hiddenSkins": [
+      "studio"
+    ],
+    "defaultSkin": "site"
   }
 }
