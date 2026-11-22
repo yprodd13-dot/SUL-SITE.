@@ -52,7 +52,8 @@
       ['head', 'Notes'], ['noteFill', 'Note colours', 'fill', { by: NOTE_BY }], ['activeColor', 'Playing note colour', 'color'], ['noteStroke', 'Note outline', 'range', 0, 12, 0.5], ['noteStrokeColor', 'Outline colour', 'color', { if: function (e) { return e.noteStroke > 0; } }], ['activeStroke', 'Playing note outline (empty = same)', 'color', { if: function (e) { return e.noteStroke > 0; } }],
       ['noteRadius', 'Note corners', 'range', 0, 30, 0.5], ['noteHeight', 'Note thickness', 'range', 10, 100, 1, { suffix: '%' }], ['noteGlow', 'Glow', 'range', 0, 60, 1], ['futureAlpha', 'Upcoming notes', 'range', 0, 100, 1, { suffix: '%' }]]
       .concat(BG_F, [['head', 'Grid, keys & playhead'], ['gridColor', 'Beat lines / rows', 'color'], ['barLineColor', 'Bar lines', 'color'], ['labelColor', 'Numbers colour', 'color'], ['playhead', 'Playhead colour', 'color'], ['keyWidth', 'Key width', 'range', 2, 25, 0.5, { if: function (e) { return e.keys; } }],
-        ['head', 'Movement'], ['mode', 'Movement', 'chips', [['page', 'Page by page'], ['scroll', 'Scrolling']]], ['beats', 'Beats on screen', 'range', 1, 64, 1], ['playheadPos', 'Playhead position', 'range', 0, 100, 1, { suffix: '%', if: function (e) { return e.mode === 'scroll'; } }],
+        ['head', 'Movement'], ['mode', 'Movement', 'chips', [['page', 'Page by page'], ['scroll', 'Scrolling'], ['follow', 'Follow the notes']]], ['beats', 'Beats on screen', 'range', 1, 64, 1], ['playheadPos', 'Playhead position', 'range', 0, 100, 1, { suffix: '%', if: function (e) { return e.mode !== 'page'; } }],
+        ['followPitch', 'Follow the melody up & down', 'toggle', { rerender: true, if: function (e) { return e.mode === 'follow'; } }], ['followRows', 'Notes tall (zoom)', 'range', 4, 60, 1, { if: function (e) { return e.mode === 'follow' && e.followPitch !== false; } }], ['followSmooth', 'Smoothness', 'range', 0.1, 4, 0.05, { suffix: 's', if: function (e) { return e.mode === 'follow' && e.followPitch !== false; } }],
         ['head', 'Note range'], ['lowNote', 'Lowest note (0 = auto)', 'note'], ['highNote', 'Highest note (0 = auto)', 'note'], ['padNotes', 'Space above/below', 'range', 0, 12, 1]]),
     stepgrid: [['togs', [['panel', 'Background'], ['titleBar', 'Title bar'], ['keys', 'Key column'], ['showOff', 'Empty cells'], ['showLabels', 'Note names'], ['showPlayhead', 'Playhead']]],
       ['head', 'Hits'], ['cellFill', 'Hit colours', 'fill', { by: ROW_BY }], ['hitColor', 'Flash colour', 'color'], ['cellStroke', 'Cell outline', 'range', 0, 12, 0.5], ['cellStrokeColor', 'Outline colour', 'color', { if: function (e) { return e.cellStroke > 0; } }], ['strokeEmpty', 'Outline empty cells too', 'toggle', { if: function (e) { return e.cellStroke > 0; } }],
@@ -62,6 +63,7 @@
       ['head', 'Notes'], ['noteFill', 'Note colours', 'fill', { by: NOTE_BY }], ['noteStroke', 'Note outline', 'range', 0, 12, 0.5], ['noteStrokeColor', 'Outline colour', 'color', { if: function (e) { return e.noteStroke > 0; } }], ['radius', 'Note corners', 'range', 0, 30, 0.5], ['glow', 'Glow', 'range', 0, 60, 1],
       ['head', 'Background'], ['bg', 'Background colour', 'fill', { angle: 1 }], ['bgOpacity', 'Background opacity', 'range', 0, 100, 1, { suffix: '%' }], ['lineColor', 'Octave lines', 'color', { if: function (e) { return e.showLines !== false; } }], ['keyH', 'Keyboard height', 'range', 2, 40, 0.5, { suffix: '%', if: function (e) { return e.keyboard; } }],
       ['head', 'Movement'], ['direction', 'Direction', 'chips', [['down', '⬇ Fall down'], ['up', '⬆ Rise up']]], ['look', 'How far ahead', 'range', 0.5, 12, 0.1, { suffix: 's' }],
+      ['followKeys', 'Follow the notes (keyboard slides with the melody)', 'toggle', { rerender: true }], ['followWidth', 'Keys across (zoom)', 'range', 6, 60, 1, { if: function (e) { return e.followKeys; } }], ['followSmooth', 'Smoothness', 'range', 0.1, 4, 0.05, { suffix: 's', if: function (e) { return e.followKeys; } }],
       ['head', 'Note range'], ['lowNote', 'Lowest note (0 = auto)', 'note'], ['highNote', 'Highest note (0 = auto)', 'note'], ['padNotes', 'Space left/right', 'range', 0, 12, 1]],
     noteburst: [['head', 'Bursts'], ['style', 'Style', 'chips', [['rings', 'Rings'], ['sparks', 'Sparks'], ['stars', 'Stars'], ['hearts', 'Hearts'], ['dots', 'Dots']]], ['burstFill', 'Colours', 'fill', { by: RANDOM_BY }], ['noteStroke', 'Outline (stars, hearts, dots)', 'range', 0, 12, 0.5], ['noteStrokeColor', 'Outline colour', 'color', { if: function (e) { return e.noteStroke > 0; } }],
       ['life', 'How long', 'range', 0.1, 4, 0.05, { suffix: 's' }], ['size', 'Size', 'range', 10, 600, 1], ['layout', 'Where', 'chips', [['pitch', 'By note'], ['center', 'Middle'], ['random', 'Random']]], ['count', 'Sparks per hit', 'range', 1, 60, 1],
@@ -399,7 +401,7 @@
       body.appendChild(sk);
     }
     var look = h('div', { class: 'se-sec' });
-    this.form(look, MIDI_LOOK[el.type], el, function (k, l) { if (!l && k !== 'skin') el.skin = ''; ch(k, l); if (!l && /^(panel|titleBar|frame|offsetShadow|noteStroke|cellStroke|keys|keyboard|showLines|showOff|mode)$/.test(k)) self.renderInspector(); }, def.defaults);
+    this.form(look, MIDI_LOOK[el.type], el, function (k, l) { if (!l && k !== 'skin') el.skin = ''; ch(k, l); if (!l && /^(panel|titleBar|frame|offsetShadow|noteStroke|cellStroke|keys|keyboard|showLines|showOff|mode|followPitch|followKeys)$/.test(k)) self.renderInspector(); }, def.defaults);
     body.appendChild(look);
   };
   var MY_SKINS = 'sul.short.myskins';
@@ -598,7 +600,7 @@
   EP.renderPanel = function () {
     if (!this.P || !this.panel) return;
     var p = this.panel, keep = this.tab === this._lastTab ? p.scrollTop : 0;
-    var has = this.P.layers.some(function (l) { return l.replaceable; }), rp = this.root.querySelector('[data-tab=replace]'); if (rp) rp.hidden = !has && this.tab !== 'replace';
+    var has = this.P.layers.some(function (l) { return l.replaceable; }), rp = this.$('[data-tab=replace]'); if (rp) rp.hidden = !has && this.tab !== 'replace';
     p.innerHTML = ''; var fn = this['panel_' + this.tab]; if (fn) fn.call(this, p);
     this.applyWS(); this._lastTab = this.tab; p.scrollTop = keep;
   };
@@ -706,7 +708,7 @@
     });
   };
   var ELEMENTS = [
-    ['MIDI visuals (your melody & drums)', [['pianoroll', 'Piano roll', {}], ['pianoroll', 'Scrolling roll', { mode: 'scroll', noteFill: C.fill('#38c8ff', '#ff3fc8', { by: 'pitch', anim: 'flow' }), panel: false, label: '' }], ['stepgrid', 'Drum grid', {}], ['falling', 'Falling notes', {}], ['falling', 'Rising notes', { direction: 'up' }], ['noteburst', 'Note bursts', {}], ['noteburst', 'Sparks', { style: 'sparks' }], ['noteburst', 'Hearts', { style: 'hearts', layout: 'random' }], ['plugin', 'Synth panel', {}]]],
+    ['MIDI visuals (your melody & drums)', [['pianoroll', 'Piano roll', {}], ['pianoroll', 'Scrolling roll', { mode: 'scroll', noteFill: C.fill('#38c8ff', '#ff3fc8', { by: 'pitch', anim: 'flow' }), panel: false, label: '' }], ['pianoroll', 'Follow roll', { mode: 'follow', playheadPos: 40 }], ['stepgrid', 'Drum grid', {}], ['falling', 'Falling notes', {}], ['falling', 'Rising notes', { direction: 'up' }], ['falling', 'Following keys', { followKeys: true }], ['noteburst', 'Note bursts', {}], ['noteburst', 'Sparks', { style: 'sparks' }], ['noteburst', 'Hearts', { style: 'hearts', layout: 'random' }], ['plugin', 'Synth panel', {}]]],
     ['Audio visuals (move with the song)', [['spectrum', 'Bars', {}], ['spectrum', 'Circle', { style: 'circle', bands: 64, w: 700, h: 700 }], ['spectrum', 'Line', { style: 'line' }], ['spectrum', 'Mirror', { mirror: true }], ['waveform', 'Waveform', {}], ['waveform', 'Oscilloscope', { style: 'scope', bg: '#120d18' }], ['player', 'Retro player', {}], ['progress', 'Progress bar', {}], ['timer', 'Time', {}]]],
     ['Shapes & extras', [['shape', 'Rectangle', {}], ['shape', 'Circle', { kind: 'circle' }], ['shape', 'Star', { kind: 'star', fillc: C.fill('#ffe14d') }], ['shape', 'Heart', { kind: 'heart' }], ['shape', 'Sparkle', { kind: 'sparkle', fillc: C.fill('#ffffff') }], ['shape', 'Arrow', { kind: 'arrow', w: 300, h: 160 }], ['sparkles', 'Sparkles', {}], ['adjust', 'Adjustment layer', {}]]]
   ];

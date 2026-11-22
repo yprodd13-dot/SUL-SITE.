@@ -717,15 +717,37 @@
     if (lo > hi) { lo = 48; hi = 72; }
     var pad = el.padNotes == null ? 2 : el.padNotes; return [Math.max(0, lo - pad), Math.min(127, hi + pad)];
   }
+  // where the music is (pitch), smoothed over time — the same answer for the same moment, so exports match the preview
+  function pitchCenter(notes, t, sig, ahead) {
+    var c = t + (ahead || 0), sw = 0, sp = 0, lo3 = c - sig * 4, hi3 = c + sig * 4;
+    for (var i = 0; i < notes.length; i++) { var n = notes[i]; if (n.t > hi3) break; if (n.e < lo3) continue; var m = (Math.max(n.t, lo3) + Math.min(n.e, hi3)) / 2, d = (m - c) / sig, wgt = Math.exp(-0.5 * d * d) * (0.3 + n.v); sw += wgt; sp += wgt * n.p; }
+    if (sw > 1e-4) return sp / sw;
+    // nothing near: use the nearest note before/after
+    var best = null, bd = 1e9; for (i = 0; i < notes.length; i++) { var dd = Math.min(Math.abs(notes[i].t - c), Math.abs(notes[i].e - c)); if (dd < bd) { bd = dd; best = notes[i]; } }
+    return best ? best.p : 60;
+  }
   T.pianoroll = {
     label: 'Piano roll', icon: '🎹', midi: true,
-    defaults: Object.assign({}, PANEL_DEF, { midi: 'all', track: -1, channel: -1, mode: 'page', beats: 8, noteFill: F('#ffb3d1', '#ff2a7a', { by: 'velocity' }), activeColor: '#ffffff', gridColor: '#2b2533', barLineColor: '#3d3446', playhead: '#ff7ab8', keys: true, keyWidth: 7, noteRadius: 2, noteGlow: 10, noteHeight: 84, bpmLabel: true, lowNote: 0, highNote: 0, padNotes: 2, labelColor: '#c9bfd6', playheadPos: 35, noteStroke: 0, noteStrokeColor: '#000000', activeStroke: '', showGrid: true, showRows: false, showNums: true, showPlayhead: true, futureAlpha: 90 }),
+    defaults: Object.assign({}, PANEL_DEF, { midi: 'all', track: -1, channel: -1, mode: 'page', beats: 8, noteFill: F('#ffb3d1', '#ff2a7a', { by: 'velocity' }), activeColor: '#ffffff', gridColor: '#2b2533', barLineColor: '#3d3446', playhead: '#ff7ab8', keys: true, keyWidth: 7, noteRadius: 2, noteGlow: 10, noteHeight: 84, bpmLabel: true, lowNote: 0, highNote: 0, padNotes: 2, labelColor: '#c9bfd6', playheadPos: 35, noteStroke: 0, noteStrokeColor: '#000000', activeStroke: '', showGrid: true, showRows: false, showNums: true, showPlayhead: true, futureAlpha: 90, followPitch: true, followRows: 18, followSmooth: 0.8 }),
     render: function (g, el, w, h, R, S) {
       var bar = chrome(g, el, w, h, S, el.label, R.t), pad = el.panel === false ? 0 : 8 * S, kx = el.keys ? w * el.keyWidth / 100 : 0, top = el.panel !== false && (el.showNums !== false || el.bpmLabel) ? h * 0.05 : 0;
       var x0 = pad + kx, y0 = bar + pad + top, iw = w - x0 - pad, ih = h - y0 - pad;
-      var notes = filterNotes(R.notes, el), rg = autoRange(notes, el), lo = rg[0], hi = rg[1], rows = hi - lo + 1, rh = ih / rows;
+      var notes = filterNotes(R.notes, el), rg = autoRange(notes, el), lo = rg[0], hi = rg[1], rows = hi - lo + 1, rh;
       var spb = 60 / (R.P.bpm || 120), win = (el.beats || 8) * spb, t = R.t, ws, playX, off = R.P.beatOffset || 0;
+      if (el.mode === 'follow' && el.followPitch !== false && notes.length) {
+        // the view glides up/down to follow the melody
+        rows = clamp(el.followRows || 18, 4, 88);
+        var cp = pitchCenter(notes, t, Math.max(0.1, el.followSmooth || 0.8), win * 0.15);
+        cp = clamp(cp, rg[0] + rows / 2 - 0.5, Math.max(rg[0] + rows / 2 - 0.5, rg[1] - rows / 2 + 0.5));
+        lo = cp - rows / 2 + 0.5; hi = lo + rows - 1;
+      }
+      rh = ih / rows;
       if (el.mode === 'scroll') { ws = t - win * el.playheadPos / 100; playX = x0 + iw * el.playheadPos / 100; }
+      else if (el.mode === 'follow') {
+        // the playhead walks in, then the notes slide along with it
+        var lead = win * el.playheadPos / 100, st = Math.min(off, 0);
+        ws = Math.max(st, t - lead); playX = x0 + (t - ws) / win * iw;
+      }
       else { var page = Math.floor(beatPos(R.P, t) / (el.beats || 8)); ws = off + page * win; playX = x0 + (t - ws) / win * iw; }
       g.font = '600 ' + Math.max(9 * S, h * 0.035) + 'px "Space Grotesk", sans-serif'; g.textBaseline = 'alphabetic';
       for (var b = Math.ceil((ws - off) / spb); (off + b * spb) <= ws + win; b++) {
@@ -733,12 +755,15 @@
         if (el.showGrid !== false) { g.fillStyle = isBar ? el.barLineColor : el.gridColor; g.fillRect(bx, y0, Math.max(1, (isBar ? 2 : 1) * S), ih); }
         if (isBar && el.panel !== false && el.showNums !== false) { g.fillStyle = el.labelColor; g.fillText(String(b / 4 + 1), bx + 3 * S, y0 - 4 * S); }
       }
-      if (el.showRows && el.showGrid !== false) { g.fillStyle = el.gridColor; for (var rw = lo; rw <= hi; rw++) if (isBlack(rw)) g.fillRect(x0, y0 + (hi - rw) * rh, iw, rh); }
-      if (el.bpmLabel && el.panel !== false) { g.textAlign = 'right'; g.fillStyle = el.labelColor; g.fillText(Math.round(R.P.bpm) + ' BPM', x0 + iw, y0 - 4 * S); g.textAlign = 'left'; }
-      if (el.keys) for (var p = lo; p <= hi; p++) {
+      var pLo = Math.floor(lo), pHi = Math.ceil(hi);
+      g.save(); g.beginPath(); g.rect(0, y0, w, ih); g.clip();
+      if (el.showRows && el.showGrid !== false) { g.fillStyle = el.gridColor; for (var rw = pLo; rw <= pHi; rw++) if (isBlack(rw)) g.fillRect(x0, y0 + (hi - rw) * rh, iw, rh); }
+      if (el.keys) for (var p = pLo; p <= pHi; p++) {
         var ky = y0 + (hi - p) * rh, act = false; for (var q = 0; q < notes.length; q++) { var nn = notes[q]; if (nn.t > t) break; if (nn.p === p && nn.e > t) { act = true; break; } }
         g.fillStyle = act ? colorAt(el.noteFill, (p - lo) / Math.max(1, rows), t) : isBlack(p) ? '#1b1b1f' : '#f2eef6'; g.fillRect(pad, ky + 0.5, kx - 2 * S, Math.max(1, rh - 1));
       }
+      g.restore();
+      if (el.bpmLabel && el.panel !== false) { g.textAlign = 'right'; g.fillStyle = el.labelColor; g.fillText(Math.round(R.P.bpm) + ' BPM', x0 + iw, y0 - 4 * S); g.textAlign = 'left'; }
       g.save(); g.beginPath(); g.rect(x0, y0, iw, ih); g.clip();
       var nh = clamp((el.noteHeight == null ? 84 : el.noteHeight) / 100, 0.1, 1);
       for (var i = 0; i < notes.length; i++) {
@@ -746,7 +771,7 @@
         var nx = x0 + (n.t - ws) / win * iw, nw = Math.max(3 * S, (n.e - n.t) / win * iw - 2 * S), ny = y0 + (hi - n.p) * rh;
         var on = n.t <= t && n.e > t, c = colorAt(el.noteFill, noteU(el.noteFill, n, lo, hi, (nx - x0) / iw), t);
         if (on) { g.shadowColor = c; g.shadowBlur = el.noteGlow * S; c = el.activeColor || c; }
-        g.fillStyle = c; var ga = g.globalAlpha; g.globalAlpha = ga * (el.mode === 'page' && n.t > t ? (el.futureAlpha == null ? 90 : el.futureAlpha) / 100 : 1);
+        g.fillStyle = c; var ga = g.globalAlpha; g.globalAlpha = ga * (el.mode !== 'scroll' && n.t > t ? (el.futureAlpha == null ? 90 : el.futureAlpha) / 100 : 1);
         rr(g, nx, ny + rh * (1 - nh) / 2, nw, Math.max(2, rh * nh), el.noteRadius * S); g.fill();
         g.shadowBlur = 0; if (el.noteStroke > 0) { g.lineWidth = el.noteStroke * S; g.strokeStyle = on && el.activeStroke ? el.activeStroke : el.noteStrokeColor; g.stroke(); }
         g.globalAlpha = ga;
@@ -790,12 +815,20 @@
   };
   T.falling = {
     label: 'Falling notes', icon: '⬇', midi: true,
-    defaults: { midi: 'all', track: -1, channel: -1, look: 3, lowNote: 0, highNote: 0, noteFill: F('#38c8ff', '#ff3fc8', { by: 'pitch' }), keyboard: true, keyH: 12, glow: 16, radius: 6, bg: 'transparent', lineColor: 'rgba(255,255,255,0.08)', hitFlash: true, direction: 'down', noteStroke: 0, noteStrokeColor: '#000000', showLines: true, bgOpacity: 100 },
+    defaults: { midi: 'all', track: -1, channel: -1, look: 3, lowNote: 0, highNote: 0, noteFill: F('#38c8ff', '#ff3fc8', { by: 'pitch' }), keyboard: true, keyH: 12, glow: 16, radius: 6, bg: 'transparent', lineColor: 'rgba(255,255,255,0.08)', hitFlash: true, direction: 'down', followKeys: false, followWidth: 24, followSmooth: 0.8, noteStroke: 0, noteStrokeColor: '#000000', showLines: true, bgOpacity: 100 },
     render: function (g, el, w, h, R, S) {
       var notes = filterNotes(R.notes, el), rg = autoRange(notes, el), lo = rg[0], hi = rg[1];
       if (el.bg && el.bg !== 'transparent' && (el.bgOpacity == null || el.bgOpacity > 0)) { g.save(); g.globalAlpha *= el.bgOpacity == null ? 1 : el.bgOpacity / 100; g.fillStyle = paint(g, el.bg, 0, 0, w, h, R.t); g.fillRect(0, 0, w, h); g.restore(); }
-      var up = el.direction === 'up', kh = el.keyboard ? h * el.keyH / 100 : 0, fh = h - kh, cols = hi - lo + 1, cw = w / cols, look = el.look || 3, ky = up ? 0 : fh, fy = up ? kh : 0;
-      g.fillStyle = el.lineColor; if (el.showLines !== false) for (var c = 0; c <= cols; c++) if ((lo + c) % 12 === 0) g.fillRect(c * cw, fy, 1 * S, fh);
+      var up = el.direction === 'up', kh = el.keyboard ? h * el.keyH / 100 : 0, fh = h - kh, cols = hi - lo + 1, look = el.look || 3, ky = up ? 0 : fh, fy = up ? kh : 0;
+      if (el.followKeys && notes.length) {
+        // the keyboard slides left/right to follow the melody
+        cols = clamp(el.followWidth || 24, 6, 88);
+        var cp = clamp(pitchCenter(notes, R.t, Math.max(0.1, el.followSmooth || 0.8), look * 0.3), rg[0] + cols / 2 - 0.5, Math.max(rg[0] + cols / 2 - 0.5, rg[1] - cols / 2 + 0.5));
+        lo = cp - cols / 2 + 0.5; hi = lo + cols - 1;
+      }
+      var cw = w / cols, pLo = Math.floor(lo), pHi = Math.ceil(hi);
+      g.save(); g.beginPath(); g.rect(0, 0, w, h); g.clip();
+      g.fillStyle = el.lineColor; if (el.showLines !== false) for (var c = pLo; c <= pHi + 1; c++) if (((c % 12) + 12) % 12 === 0) g.fillRect((c - lo) * cw, fy, 1 * S, fh);
       for (var i = 0; i < notes.length; i++) {
         var n = notes[i]; if (n.t > R.t + look) break; if (n.e < R.t) continue;
         var a = (n.t - R.t) / look * fh, b = (n.e - R.t) / look * fh, x = (n.p - lo) * cw, col = colorAt(el.noteFill, noteU(el.noteFill, n, lo, hi, (n.p - lo) / cols), R.t);
@@ -805,12 +838,13 @@
         if (el.noteStroke > 0) { g.shadowBlur = 0; g.lineWidth = el.noteStroke * S; g.strokeStyle = el.noteStrokeColor; g.stroke(); }
       }
       g.shadowBlur = 0;
-      if (el.keyboard) for (var p = lo; p <= hi; p++) {
+      if (el.keyboard) for (var p = pLo; p <= pHi; p++) {
         var xx = (p - lo) * cw, on = false; for (var q = 0; q < notes.length; q++) { var nn = notes[q]; if (nn.t > R.t) break; if (nn.p === p && nn.e > R.t) { on = true; break; } }
         g.fillStyle = on ? colorAt(el.noteFill, (p - lo) / cols, R.t) : isBlack(p) ? '#1a1520' : '#f4f0fa';
         g.fillRect(xx + 1, ky, cw - 2, isBlack(p) ? kh * 0.62 : kh);
         if (on && el.hitFlash) { var gr = g.createLinearGradient(0, up ? kh : fh, 0, up ? kh + 60 * S : fh - 60 * S); gr.addColorStop(0, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(xx, up ? kh : fh - 60 * S, cw, 60 * S); }
       }
+      g.restore();
     }
   };
   T.noteburst = {
@@ -1030,7 +1064,7 @@
   function skinList() {
     return SKIN_LIST.filter(function (k) { return HIDDEN.indexOf(k[0]) < 0; }).concat(CUSTOM.map(function (k) { return [k.id, k.name || 'Skin', k]; }));
   }
-  var SKIN_SKIP = ['midi', 'track', 'channel', 'lowNote', 'highNote', 'padNotes', 'label', 'mode', 'beats', 'steps', 'stepLen', 'maxRows', 'direction', 'look', 'playheadPos', 'layout', 'count', 'life', 'size', 'brand', 'preset', 'knobs'];
+  var SKIN_SKIP = ['followPitch', 'followRows', 'followSmooth', 'followKeys', 'followWidth', 'midi', 'track', 'channel', 'lowNote', 'highNote', 'padNotes', 'label', 'mode', 'beats', 'steps', 'stepLen', 'maxRows', 'direction', 'look', 'playheadPos', 'layout', 'count', 'life', 'size', 'brand', 'preset', 'knobs'];
   // the look of a MIDI visual, as a skin that also works on the other MIDI visuals
   function skinFromEl(el) {
     var def = T[el.type], o = {}; if (!def) return o;

@@ -125,6 +125,7 @@ GitHub repo → **Actions** → **Install AI files** → **Run workflow**. It ta
 - **Export**: frame-perfect MP4 (every frame is drawn, so it's smooth on any computer). Up to 4K, 24–60 fps.
 - **Admin → 🎬 Short Editor**: ✚ **Make a template** opens the editor inside the admin — build it, switch on **Template slot** for things people should replace, press ✓ SAVE TEMPLATE, then Publish. Upload **fonts** everyone can use, and assets can now be pictures, videos or sounds.
 - People can upload their own fonts, pictures, videos, songs and MIDI into their edits.
+- **v5.3**: piano roll movement **Follow the notes** (the playhead walks in, then the notes slide along with it and the view glides up/down with the melody — zoom and smoothness sliders); falling notes can **follow the notes** too. The editor page now uses the full width of the screen, and **⛶ FULL SCREEN** (or press F) fills the whole screen; Esc to leave.
 - **v5.2 — MIDI skins you make**: Admin → 🎬 Short Editor → **MIDI skins**: ✚ Make a MIDI skin, switch built-in skins on/off, delete your own, pick the default. Visitors can save their own skins in their browser too.
 - **v5.1 — 🎹 MIDI look**: every MIDI visual has its own tab with one-click skins (Site theme is the default and uses your site colours, Notes only, Dark studio, Neon, Clean white, Pixel arcade, Glass), show/hide switches for every part, and note outlines, background colour/opacity and more.
 

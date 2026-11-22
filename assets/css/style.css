@@ -855,4 +855,7 @@ body.pop-lock { overflow: hidden; }
    ========================================================= */
 .t-editor .wrap { max-width: none; padding-left: clamp(8px, 1.4vw, 24px); padding-right: clamp(8px, 1.4vw, 24px); }
 .se-mount { min-height: 70vh; }
+/* the editor page uses the whole width of the screen */
+.page:has(.se-mount), .page.page-wide { max-width: none; padding-left: clamp(6px, 1vw, 16px); padding-right: clamp(6px, 1vw, 16px); }
+.page:has(.se-mount) > .section, .page.page-wide > .section { padding-top: 10px; padding-bottom: 10px; }
 .se-loading { display: grid; place-items: center; min-height: 60vh; font: 400 12px var(--font-ui); color: var(--muted); }

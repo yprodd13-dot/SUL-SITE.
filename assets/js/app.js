@@ -685,7 +685,7 @@
   R.editor = function (s) {
     return secHead(s) + '<div class="se-mount" data-editor="' + esc(s.id) + '"><div class="se-loading">LOADING SHORT EDITOR…</div></div>';
   };
-  var EDITOR_V = '5.2', EDITOR_FILES = ['assets/js/editor/core.js', 'assets/js/editor/cloud.js', 'assets/js/editor/ui.js', 'assets/js/editor/ui-insp.js', 'assets/js/editor/ui-io.js'], editorLoading = null;
+  var EDITOR_V = '5.3', EDITOR_FILES = ['assets/js/editor/core.js', 'assets/js/editor/cloud.js', 'assets/js/editor/ui.js', 'assets/js/editor/ui-insp.js', 'assets/js/editor/ui-io.js'], editorLoading = null;
   function loadEditor() {
     if (window.ShortEditor && window.ShortEditor._EP && window.ShortEditor._EP.renderPanel && window.ShortEditor._EP.exportDialog) return Promise.resolve();
     if (editorLoading) return editorLoading;
@@ -697,6 +697,7 @@
   }
   function mountEditors(app) {
     app.querySelectorAll('[data-editor]').forEach(function (m) {
+      var pg = m.closest('.page'); if (pg) pg.classList.add('page-wide');
       loadEditor().then(function () { if (m.isConnected) window.ShortEditor.mount(m, cfg, api); })
         .catch(function (e) { console.error(e); m.innerHTML = '<div class="se-loading">The editor couldn\'t load — please refresh the page.</div>'; });
     });

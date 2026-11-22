@@ -60,16 +60,17 @@
   var EP = Editor.prototype;
   EP.on = function (tg, ev, fn, o) { tg.addEventListener(ev, fn, o); this.offs.push([tg, ev, fn, o]); };
   EP.destroy = function () {
-    this.dead = true; this.stop(); cancelAnimationFrame(this.raf); clearInterval(this.autoT); if (this.ro) this.ro.disconnect();
+    this.dead = true; if (this.box && this.box.classList.contains('se-fs')) this.fullScreen(false); this.stop(); cancelAnimationFrame(this.raf); clearInterval(this.autoT); if (this.ro) this.ro.disconnect();
     if (this.dirty && !this.opts.builder) this.saveLocal();
     this.offs.forEach(function (o) { o[0].removeEventListener(o[1], o[2], o[3]); });
     Object.keys(this.vids).forEach(function (k) { try { this.vids[k].pause(); this.vids[k].removeAttribute('src'); this.vids[k].load(); } catch (e) { } }, this);
     Object.keys(this.media).forEach(function (k) { var m = this.media[k]; if (m && m.url && m.own) URL.revokeObjectURL(m.url); }, this);
     if (this.ac) try { this.ac.close(); } catch (e) { }
+    if (this.box && this.box.parentNode && this.box.parentNode !== this.root) this.box.remove();
     this.root.innerHTML = '';
   };
-  EP.toast = function (msg, bad) { var t = this.root.querySelector('.se-toast'); if (!t) return; t.textContent = msg; t.className = 'se-toast show' + (bad ? ' bad' : ''); clearTimeout(this.toastT); this.toastT = setTimeout(function () { t.className = 'se-toast'; }, bad ? 5000 : 3000); };
-  EP.$ = function (s) { return this.root.querySelector(s); };
+  EP.toast = function (msg, bad) { var t = this.$('.se-toast'); if (!t) return; t.textContent = msg; t.className = 'se-toast show' + (bad ? ' bad' : ''); clearTimeout(this.toastT); this.toastT = setTimeout(function () { t.className = 'se-toast'; }, bad ? 5000 : 3000); };
+  EP.$ = function (s) { return (this.box || this.root).querySelector(s); };
 
   var RAIL = [['media', '📁', 'Media'], ['audio', '🎵', 'Audio & MIDI'], ['text', 'T', 'Text'], ['elements', '✦', 'Visuals'], ['effects', '✨', 'Effects'], ['anims', '🎬', 'Animations'], ['trans', '⚡', 'Transitions'], ['templates', '🧩', 'Templates'], ['replace', '⇄', 'Replace'], ['textures', '▦', 'Textures'], ['canvas', '▣', 'Canvas']];
 
@@ -84,7 +85,7 @@
       '<div class="se-bpm" title="Tempo — everything that moves on the beat follows this"><label>BPM <input type="number" min="40" max="300" step="0.1" data-bpm></label><button type="button" data-tap title="Tap along to the music">TAP</button><button type="button" data-detect title="Guess the BPM from your audio">AUTO</button></div>' +
       '<span class="se-flex"></span>' +
       '<div class="se-topbtns"><button type="button" data-undo title="Undo (Ctrl+Z)">↶</button><button type="button" data-redo title="Redo (Ctrl+Shift+Z)">↷</button>' +
-      '<button type="button" data-layout title="Workspace: panel sizes, swap sides, reset">⚙ LAYOUT</button>' +
+      '<button type="button" data-layout title="Workspace: panel sizes, swap sides, reset">⚙ LAYOUT</button>' + (B ? '' : '<button type="button" data-fs title="Full screen (F)">⛶ FULL SCREEN</button>') +
       (B ? '' : '<button type="button" data-projects>📁 PROJECTS</button><button type="button" data-save>💾 SAVE</button><button type="button" data-login hidden>☁ LOG IN</button>') +
       (B ? (this.opts.skinMode ? '' : '<button type="button" class="se-export" data-savetpl>✓ SAVE TEMPLATE</button>') + '<button type="button" data-closeb>✕ CLOSE</button>' : '<button type="button" class="se-export" data-export>⬇ EXPORT</button>') +
       '</div></div>' +
@@ -132,6 +133,8 @@
     R.querySelector('[data-undo]').addEventListener('click', function () { self.undo(); });
     R.querySelector('[data-redo]').addEventListener('click', function () { self.redo(); });
     R.querySelector('[data-layout]').addEventListener('click', function (e) { self.layoutMenu(e.currentTarget); });
+    if (R.querySelector('[data-fs]')) R.querySelector('[data-fs]').addEventListener('click', function () { self.fullScreen(); });
+    this.on(document, 'fullscreenchange', function () { if (!document.fullscreenElement && self.box.classList.contains('se-fs') && self._fsApi) self.fullScreen(false); });
     if (!B) {
       R.querySelector('[data-projects]').addEventListener('click', function () { self.projectsDialog(); });
       R.querySelector('[data-save]').addEventListener('click', function () { self.saveLocal(true); });
@@ -180,12 +183,12 @@
      WORKSPACE
      ========================================================= */
   EP.applyWS = function (save) {
-    var w = this.ws, b = this.box, vw = this.root.clientWidth || 1400;
+    var w = this.ws, b = this.box, vw = (this.box && this.box.clientWidth) || this.root.clientWidth || 1400;
     w.left = clamp(w.left, 200, Math.max(220, vw * 0.4)); w.right = clamp(w.right, 240, Math.max(260, vw * 0.42)); w.tl = clamp(w.tl, 120, 700); w.ui = clamp(w.ui, 75, 140);
     b.style.setProperty('--se-left', (w.leftOpen ? w.left : 0) + 'px'); b.style.setProperty('--se-right', (w.rightOpen ? w.right : 0) + 'px'); b.style.setProperty('--se-tlh', (w.tlOpen ? w.tl : 34) + 'px');
     b.style.fontSize = (13 * w.ui / 100) + 'px';
     b.classList.toggle('se-swap', !!w.swap); b.classList.toggle('no-left', !w.leftOpen); b.classList.toggle('no-right', !w.rightOpen); b.classList.toggle('no-tl', !w.tlOpen);
-    var tab = this.tab; this.root.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('on', w.leftOpen && x.getAttribute('data-tab') === tab); });
+    var tab = this.tab; b.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('on', w.leftOpen && x.getAttribute('data-tab') === tab); });
     if (save) { try { localStorage.setItem(WS_KEY, JSON.stringify(w)); } catch (e) { } var self = this; setTimeout(function () { self.sizeStage(); self.renderTimeline(); }, 30); }
   };
   EP.bindSplits = function () {
@@ -211,6 +214,18 @@
       });
     });
   };
+  // fills the whole screen (and hides the browser bars when the browser allows it)
+  EP.fullScreen = function (on) {
+    var b = this.box, self = this; if (on == null) on = !b.classList.contains('se-fs');
+    b.classList.toggle('se-fs', on); document.documentElement.classList.toggle('se-fs-on', on);
+    // move the editor to the top of the page while full screen, so nothing on the site can squeeze it
+    if (on && b.parentNode !== document.body) document.body.appendChild(b);
+    if (!on && b.parentNode !== this.root) this.root.appendChild(b);
+    var btn = this.$('[data-fs]'); if (btn) btn.textContent = on ? '✕ EXIT FULL SCREEN' : '⛶ FULL SCREEN';
+    if (on) { this._fsApi = false; if (b.requestFullscreen && !document.fullscreenElement) b.requestFullscreen().then(function () { self._fsApi = true; }).catch(function () { }); }
+    else if (document.fullscreenElement) document.exitFullscreen().catch(function () { });
+    setTimeout(function () { self.stageZoom = 0; self.sizeStage(); self.renderTimeline(); }, 120);
+  };
   EP.layoutMenu = function (anchor) {
     var self = this, w = this.ws, r = anchor.getBoundingClientRect();
     this.ctxMenu(r.left, r.bottom + 4, [
@@ -224,6 +239,7 @@
       ['▭ Bigger timeline', function () { w.tlOpen = true; w.tl = Math.min(700, w.tl + 80); self.applyWS(true); }],
       ['▭ Smaller timeline', function () { w.tlOpen = true; w.tl = Math.max(120, w.tl - 80); self.applyWS(true); }],
       '-',
+      [(this.box.classList.contains('se-fs') ? '✕ Exit full screen' : '⛶ Full screen') + '  (F)', function () { self.fullScreen(); }],
       ['↺ Reset workspace', function () { self.ws = clone(WS_DEF); self.stageZoom = 0; self.applyWS(true); self.toast('Workspace reset ✓'); }]
     ]);
   };
@@ -1120,7 +1136,7 @@
   EP.bindKeys = function () {
     var self = this;
     this.on(document, 'keydown', function (e) {
-      if (!self.P || self.exporting || !self.root.isConnected) return;
+      if (!self.P || self.exporting || !self.box.isConnected) return;
       var tg = e.target, tag = (tg.tagName || '').toLowerCase();
       if (tag === 'input' && !/range|checkbox|radio|color|button/.test(tg.type) || tag === 'textarea' || tag === 'select' || tg.isContentEditable) return;
       if (!self.$('.se-modal').hidden) { if (e.key === 'Escape') self.closeModal(); return; }
@@ -1140,7 +1156,8 @@
       if (k === 'End') { self.seek(self.P.duration); return; }
       if (k === ',' ) { self.step(-1); return; }
       if (k === '.') { self.step(1); return; }
-      if (k === 'Escape') { self.select(null); return; }
+      if (k === 'Escape') { if (self.box.classList.contains('se-fs')) { self.fullScreen(false); return; } self.select(null); return; }
+      if ((k === 'f' || k === 'F') && !self.opts.builder) { self.fullScreen(); return; }
       if (/^Arrow/.test(k)) {
         e.preventDefault();
         if (el && !el.locked) { var d = e.shiftKey ? 10 : 1; if (k === 'ArrowLeft') self.setProp(el, 'x', round(C.prop(el, 'x', self.t) - d, 1)); if (k === 'ArrowRight') self.setProp(el, 'x', round(C.prop(el, 'x', self.t) + d, 1)); if (k === 'ArrowUp') self.setProp(el, 'y', round(C.prop(el, 'y', self.t) - d, 1)); if (k === 'ArrowDown') self.setProp(el, 'y', round(C.prop(el, 'y', self.t) + d, 1)); self.changed({ insp: true }); }
