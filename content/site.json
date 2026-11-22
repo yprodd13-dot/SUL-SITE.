@@ -487,11 +487,12 @@
           "id": "s-59soazexn",
           "type": "editor",
           "visible": true,
-          "align": "left",
+          "align": "center",
           "width": "full",
-          "spacing": "small",
+          "spacing": "none",
           "title": "",
-          "subtitle": ""
+          "subtitle": "",
+          "panel": true
         }
       ]
     }
