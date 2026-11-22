@@ -116,7 +116,7 @@
     var R = this.root;
     this.box = R.querySelector('.se'); this.cv = R.querySelector('.se-stage'); this.wrap = R.querySelector('.se-stagewrap'); this.selBox = R.querySelector('.se-sel');
     this.panel = R.querySelector('.se-panel'); this.insp = R.querySelector('.se-insp'); this.tlInner = R.querySelector('.se-tlinner'); this.tlScroll = R.querySelector('.se-tlscroll');
-    this.applyWS();
+    this.applyWS(); C.setTheme(this.cfg.theme);
     // top bar
     R.querySelector('.se-name').addEventListener('input', function (e) { self.P.name = e.target.value; self.changed({ quiet: true }); });
     R.querySelector('[data-ratio]').addEventListener('change', function (e) { self.setRatio(e.target.value); });
@@ -538,6 +538,7 @@
     if (changed) {
       var el = this.cur();
       if (el && el.type === 'adjust') this.insTab = 'fx';
+      else if (el && T[el.type] && T[el.type].midi && (this.insTab === 'edit' || this.insTab === 'speed' || !this._midiSeen)) { this.insTab = 'midi'; this._midiSeen = true; }
       else if (kind === 'audio') { if (this.insTab !== 'speed') this.insTab = 'edit'; }
       else if (this.insTab === 'speed' && !(el && el.type === 'video')) this.insTab = 'edit';
     }

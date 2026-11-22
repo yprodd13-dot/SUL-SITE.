@@ -312,3 +312,15 @@
   .se-toast { bottom: 1em; position: fixed; }
   .se-time { min-width: 0; }
 }
+
+/* ---------- 🎹 MIDI look ---------- */
+.se-togs { display: grid; grid-template-columns: 1fr 1fr; gap: .3em; margin: 0 0 .6em; }
+.se-togs button { display: flex; align-items: center; gap: .5em; padding: .5em .55em; background: var(--e0); box-shadow: inset 0 0 0 2px var(--e3); font-size: .85em; text-align: left; color: var(--em); }
+.se-togs button i { width: 1em; height: 1em; flex-shrink: 0; box-shadow: inset 0 0 0 2px var(--em); }
+.se-togs button.on { color: var(--et); box-shadow: inset 0 0 0 2px var(--pk); }
+.se-togs button.on i { background: var(--pk); box-shadow: inset 0 0 0 2px #000; }
+.se-skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.2em, 1fr)); gap: .4em; }
+.se-skin { display: flex; flex-direction: column; gap: .3em; padding: .35em; background: var(--e0); box-shadow: inset 0 0 0 2px var(--e3); }
+.se-skin canvas { display: block; width: 100%; height: auto; max-height: 6em; object-fit: contain; background: #cfc6dc; }
+.se-skin b { font-size: .78em; font-weight: 600; }
+.se-skin:hover { box-shadow: inset 0 0 0 2px var(--e4); } .se-skin.on { box-shadow: inset 0 0 0 2px var(--pk); }

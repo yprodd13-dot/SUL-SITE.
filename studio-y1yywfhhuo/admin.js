@@ -1782,7 +1782,7 @@
       el('button', { class: 'ab small', type: 'button', text: '⧉ Copy setup code', onclick: function () { (navigator.clipboard ? navigator.clipboard.writeText(SB_SQL) : Promise.reject()).then(function () { toast('Copied ✦', 'ok'); }, function () { toast('Select the text and copy it'); }); } })));
   };
   /* ---------- 🎬 template maker: the real editor in a full-screen overlay ---------- */
-  var EDITOR_V = '5';
+  var EDITOR_V = '5.1';
   function loadShortEditor() {
     if (window.ShortEditor && window.ShortEditor._EP && window.ShortEditor._EP.saveTemplate) return Promise.resolve();
     if (!document.querySelector('link[data-editor-css]')) { var lk = document.createElement('link'); lk.rel = 'stylesheet'; lk.href = '../assets/css/editor.css?v=' + EDITOR_V; lk.setAttribute('data-editor-css', ''); document.head.appendChild(lk); }

@@ -125,6 +125,7 @@ GitHub repo → **Actions** → **Install AI files** → **Run workflow**. It ta
 - **Export**: frame-perfect MP4 (every frame is drawn, so it's smooth on any computer). Up to 4K, 24–60 fps.
 - **Admin → 🎬 Short Editor**: ✚ **Make a template** opens the editor inside the admin — build it, switch on **Template slot** for things people should replace, press ✓ SAVE TEMPLATE, then Publish. Upload **fonts** everyone can use, and assets can now be pictures, videos or sounds.
 - People can upload their own fonts, pictures, videos, songs and MIDI into their edits.
+- **v5.1 — 🎹 MIDI look**: every MIDI visual has its own tab with one-click skins (Site theme is the default and uses your site colours, Notes only, Dark studio, Neon, Clean white, Pixel arcade, Glass), show/hide switches for every part, and note outlines, background colour/opacity and more.
 
 ## Custom domain (sul4ever.xyz)
 The `CNAME` file tells GitHub Pages to serve the site at **sul4ever.xyz**. After uploading it:

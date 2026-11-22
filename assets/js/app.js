@@ -685,7 +685,7 @@
   R.editor = function (s) {
     return secHead(s) + '<div class="se-mount" data-editor="' + esc(s.id) + '"><div class="se-loading">LOADING SHORT EDITOR…</div></div>';
   };
-  var EDITOR_V = '5', EDITOR_FILES = ['assets/js/editor/core.js', 'assets/js/editor/cloud.js', 'assets/js/editor/ui.js', 'assets/js/editor/ui-insp.js', 'assets/js/editor/ui-io.js'], editorLoading = null;
+  var EDITOR_V = '5.1', EDITOR_FILES = ['assets/js/editor/core.js', 'assets/js/editor/cloud.js', 'assets/js/editor/ui.js', 'assets/js/editor/ui-insp.js', 'assets/js/editor/ui-io.js'], editorLoading = null;
   function loadEditor() {
     if (window.ShortEditor && window.ShortEditor._EP && window.ShortEditor._EP.renderPanel && window.ShortEditor._EP.exportDialog) return Promise.resolve();
     if (editorLoading) return editorLoading;
