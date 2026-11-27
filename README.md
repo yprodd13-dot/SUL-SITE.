@@ -115,7 +115,7 @@ GitHub repo → **Actions** → **Install AI files** → **Run workflow**. It ta
 
 ## What's new in v5.4: RAR → ZIP tool
 - New tool in 🛠 Tools: drop .rar files, get .zip files. Works with RAR 4 / RAR 5, solid and password-protected archives (it asks for the password). Choose smaller (compressed) or fastest zips, skip junk files, or wrap everything in a folder. Split RARs (.part1.rar…) aren't supported.
-- It uses unrar (the official RAR code) compiled for browsers, stored on your own site. **Run GitHub → Actions → Install AI files → Run workflow once more** — it now installs the RAR reader too (assets/vendor/unrar). The admin 🛠 Tools tab shows when it's installed.
+- It uses unrar (the official RAR code) compiled for browsers, stored on your own site. The RAR reader installs itself through the **Install RAR reader** workflow (it runs automatically when that file is uploaded; you can also run it from GitHub → Actions). The admin 🛠 Tools tab shows when it's installed.
 
 ## What's new in v5: SHORT EDITOR rebuilt (works like CapCut)
 - **Timeline**: drag clips, trim both ends (videos and songs too), split (S), duplicate (Ctrl+D), delete (Del), undo/redo, right-click menu, snap to beats, zoom, reorder layers by dragging their name.

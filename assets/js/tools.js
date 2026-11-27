@@ -1105,7 +1105,7 @@
     ctx.on(drop, 'dragover', function (e) { e.preventDefault(); drop.classList.add('is-over'); });
     ctx.on(drop, 'dragleave', function () { drop.classList.remove('is-over'); });
     ctx.on(drop, 'drop', function (e) { e.preventDefault(); drop.classList.remove('is-over'); addFiles([].slice.call(e.dataTransfer.files || [])); });
-    unrarLib().catch(function (e) { if (e.notInstalled) msg.innerHTML = '⚠ The RAR reader isn\'t installed on this site yet. <b>Site owner:</b> on GitHub go to <b>Actions → Install AI files → Run workflow</b> (it adds the RAR reader too).'; });
+    unrarLib().catch(function (e) { if (e.notInstalled) msg.innerHTML = '⚠ The RAR reader isn\'t installed on this site yet. <b>Site owner:</b> on GitHub open <b>Actions → Install RAR reader → Run workflow</b>, wait for the green ✓, then give the site a couple of minutes.'; });
     function addFiles(fs) {
       fs.forEach(function (f) {
         var isRar = /\.rar$/i.test(f.name) || /rar/i.test(f.type);
