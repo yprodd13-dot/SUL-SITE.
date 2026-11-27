@@ -1,0 +1,46 @@
+name: Install RAR reader
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/install-rar.yml'
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the RAR reader
+        run: |
+          set -euo pipefail
+          WORK=$(mktemp -d)
+          ( cd "$WORK" && npm pack node-unrar-js@2.0.2 > /dev/null && mkdir unrar && tar -xzf node-unrar-js-2.0.2.tgz -C unrar )
+          rm -rf assets/vendor/unrar && mkdir -p assets/vendor/unrar/js
+          U="$WORK/unrar/package/esm"
+          cp "$U/index.esm.js" assets/vendor/unrar/
+          for f in Extractor.js ExtractorData.js ExtractorData.helper.js unrar.singleton.js unrar.js unrar.wasm; do cp "$U/js/$f" assets/vendor/unrar/js/; done
+          cp "$WORK/unrar/package/LICENSE.md" assets/vendor/unrar/LICENSE.md
+          perl -pi -e "s#(from\s*['\"])(\.{1,2}/[^'\"]+?)(?<!\.js)(['\"])#\$1\$2.js\$3#g" assets/vendor/unrar/index.esm.js assets/vendor/unrar/js/*.js
+          sed -i '/sourceMappingURL/d' assets/vendor/unrar/index.esm.js assets/vendor/unrar/js/*.js
+          ls -la assets/vendor/unrar assets/vendor/unrar/js
+
+      - name: Save it to the site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/vendor/unrar
+          git commit -m "Install RAR reader" || echo "Nothing new to save"
+          git pull --rebase || true
+          git push
+
+      - name: Rebuild the site
+        continue-on-error: true
+        run: |
+          curl -s -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages/builds" || true
