@@ -1581,7 +1581,8 @@
     ['fx', 'FX MIXER', 'Stack 30 creative effects: glitch, VHS, halftone…'],
     ['bgremove', 'BG REMOVER', 'Drop a picture, click remove, background gone.'],
     ['convert', 'FILE CONVERTER', 'MP4 → MP3/WAV, images → PNG/JPG/WEBP/ICO/PDF.'],
-    ['rename', 'ZIP RENAMER', 'Rename every file in a zip at once. Live preview.']
+    ['rename', 'ZIP RENAMER', 'Rename every file in a zip at once. Live preview.'],
+    ['rar2zip', 'RAR → ZIP', 'Turn .rar files into .zip — passwords and big kits work too.']
   ];
   function toolsPage() { var l = S.cfg.pages.filter(function (p) { return p.sections.some(function (s) { return s.type === 'tools'; }); }); return l.filter(function (p) { return p !== S.cfg.pages[0]; })[0] || l[0]; }
   function addToolsPage() {
@@ -1670,6 +1671,14 @@
     }).catch(function () {
       aiBox.className = 'note warn';
       aiBox.innerHTML = '<b>Not installed yet</b> — until it is, the remover uses plain-background mode.<br><br>Do this <b>once</b>:<br>1. Open your repo on GitHub → <b>Actions</b> tab' + (actUrl ? ' (<a href="' + actUrl + '" target="_blank" rel="noopener">open it</a>)' : '') + '.<br>2. If asked, click <b>“I understand my workflows, go ahead and enable them”</b>.<br>3. Click <b>Install AI files</b> on the left → <b>Run workflow</b> → green <b>Run workflow</b>.<br>4. Wait ~3–5 minutes for the green ✓, then a couple more minutes for the site to update. Refresh this page to check.';
+    });
+    var rarBox = el('div', { class: 'note', text: 'Checking…' });
+    add(E, group('RAR reader (RAR → ZIP tool)', 'installed by the same “Install AI files” button', rarBox));
+    fetch('../assets/vendor/unrar/js/unrar.wasm?v=' + Date.now(), { method: 'HEAD', cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0;
+      rarBox.className = 'note ok'; rarBox.innerHTML = '<b>✓ Installed.</b> The RAR → ZIP tool is ready.';
+    }).catch(function () {
+      rarBox.className = 'note warn';
+      rarBox.innerHTML = '<b>Not installed yet</b> — the RAR → ZIP tool needs it. Run it once: GitHub → <b>Actions</b>' + (actUrl ? ' (<a href="' + actUrl + '" target="_blank" rel="noopener">open it</a>)' : '') + ' → <b>Install AI files</b> → <b>Run workflow</b>. (If you already ran it before, run it again — it now adds the RAR reader too.)';
     });
     add(E, el('div', { class: 'note', html: '<b>Good to know:</b> everything in the tools runs inside visitors’ browsers. The AI (≈115–225 MB) loads from your own site the first time someone uses AI Pro, then it’s saved in their browser.' }));
   };

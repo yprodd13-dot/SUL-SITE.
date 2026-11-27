@@ -19,7 +19,8 @@
     { id: 'fx', title: 'FX MIXER', desc: 'Stack 30 creative effects: glitch, VHS, halftone…' },
     { id: 'bgremove', title: 'BG REMOVER', desc: 'Drop a picture, click remove, background gone.' },
     { id: 'convert', title: 'FILE CONVERTER', desc: 'MP4 → MP3/WAV, images → PNG/JPG/WEBP/ICO/PDF.' },
-    { id: 'rename', title: 'ZIP RENAMER', desc: 'Rename every file in a zip at once. Live preview.' }
+    { id: 'rename', title: 'ZIP RENAMER', desc: 'Rename every file in a zip at once. Live preview.' },
+    { id: 'rar2zip', title: 'RAR → ZIP', desc: 'Turn .rar files into .zip — passwords and big kits work too.' }
   ];
   // 12×12 pixel icons. k outline · p pink · v violet · c cyan · y yellow · w white · g gray · m mint
   var PAL = { k: '#2a1240', p: '#ff3fc8', v: '#8a3cff', c: '#38c8ff', y: '#ffe14d', w: '#ffffff', g: '#b9a9d6', m: '#5cffc1', d: '#5a2a8a' };
@@ -31,6 +32,7 @@
     fx: ['..kkkkkkkk..', '.kvvvvvvvvk.', 'kvvwwvvvvvvk', 'kvwvvvvpvvvk', 'kvvvvvpppvvk', 'kccccpppppck', 'kccccppppcck', 'kvvvvpppvvvk', 'kvvvvvpvvvvk', 'kvvvvvvvvwvk', '.kvvvvvvvvk.', '..kkkkkkkk..'],
     bgremove: ['wgwgwgwgwgwg', 'gwgwgkkgwgwg', 'wgwgkppkgwgw', 'gwgkppppkgwg', 'wgwkppppkwgw', 'gwgwkppkgwgw', 'wgwkkppkkgwg', 'gwkppppppkgw', 'wkppppppppkg', 'gkppppppppkw', 'wkkkkkkkkkkg', 'gwgwgwgwgwgw'],
     convert: ['kkkkk.......', 'kwwwkk......', 'kwcwwkk.....', 'kwcwwwk.....', 'kwwwwwk..y..', 'kkkkkkk..yy.', '...yyyyyyyyy', '.........yy.', '.....kkkky..', '.....kpppk..', '.....kpwpk..', '.....kkkkk..'],
+    rar2zip: ['kkkkkk......', 'kvvvvk......', 'kkkkkk......', 'kppppk......', 'kkkkkk......', 'kcccck...y..', 'kkkkkkyyyyy.', '.........y..', '......kkkkkk', '......kwykwk', '......kwkywk', '......kkkkkk'],
     rename: ['kkkkk.......', 'kyyyykkkkkk.', 'kyyyyyyyyyk.', 'kyykkkkkkkkk', 'kyykwwwwwwwk', 'kyykwppppwwk', 'kyykwwwwwwwk', 'kyykwccccwwk', 'kyykwwwwwwwk', 'kyykwvvwwwwk', 'kkkkkkkkkkkk', '............']
   };
   function pixelIcon(id) {
@@ -1052,6 +1054,146 @@
   }
 
   /* =========================================================
+     RAR → ZIP  (unrar, the official RAR code compiled for browsers, self-hosted in assets/vendor/unrar)
+     ========================================================= */
+  var UNRAR = { base: 'assets/vendor/unrar/', mod: null, wasm: null };
+  async function unrarLib() {
+    if (UNRAR.mod && UNRAR.wasm) return UNRAR;
+    var url = new URL(UNRAR.base + 'index.esm.js', location.href).href, r;
+    try { r = await fetch(new URL(UNRAR.base + 'js/unrar.wasm', location.href).href); } catch (e) { r = null; }
+    if (!r || !r.ok) { var er = new Error('notInstalled'); er.notInstalled = true; throw er; }
+    UNRAR.wasm = await r.arrayBuffer();
+    UNRAR.mod = await import(url);
+    return UNRAR;
+  }
+  function rarDos(t) {
+    var d = t ? new Date(t) : new Date(); if (isNaN(d.getTime()) || d.getFullYear() < 1980) d = new Date();
+    return { time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date: ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate() };
+  }
+  function rarWhy(e) {
+    var r = e && e.reason;
+    if (e && e.notInstalled) return 'The RAR reader isn\'t installed on this site yet.';
+    if (r === 'ERAR_MISSING_PASSWORD') return 'This RAR has a password — type it in and try again.';
+    if (r === 'ERAR_BAD_PASSWORD') return 'Wrong password — try again.';
+    if (r === 'ERAR_BAD_ARCHIVE' || r === 'ERAR_UNKNOWN_FORMAT') return 'This doesn\'t look like a working RAR file.';
+    if (r === 'ERAR_BAD_DATA') return 'The RAR is damaged (or the password is wrong).';
+    if (r === 'ERAR_NO_MEMORY') return 'Not enough memory — try a smaller RAR or another browser.';
+    if (r === 'ERAR_EOPEN' || r === 'ERAR_EREAD') return 'This RAR is part of a multi-part set (.part1.rar…) — those aren\'t supported. Join them on a computer first.';
+    return (e && e.message) || String(e);
+  }
+  function rarTool(root, ctx) {
+    var S = { pack: (typeof CompressionStream === 'function') ? 'deflate' : 'store', junk: true, folder: false };
+    var jobs = [];
+    root.innerHTML =
+      '<div class="tool-grid"><div class="tool-stage panel">' +
+      '<div class="drop drop-sm" tabindex="0" role="button"><input type="file" accept=".rar,application/vnd.rar,application/x-rar-compressed,application/x-rar" multiple hidden><div class="drop-ico">' + pixelIcon('rar2zip') + '</div><strong>DROP .RAR FILES HERE</strong><span>or click to choose · as many as you like</span><small>Converted on your device — nothing is uploaded</small></div>' +
+      '<p class="rz-msg" aria-live="polite"></p>' +
+      '<div class="conv-list"></div>' +
+      '<div class="dl-row conv-actions" hidden><button type="button" class="btn" data-run>⚡ CONVERT ALL TO .ZIP</button><button type="button" class="btn btn-sm btn-ghost" data-clear>✕ CLEAR</button></div>' +
+      '</div><aside class="tool-side panel"><div class="tc-head">📦 Zip settings</div><div class="tc-z"></div>' +
+      '<p class="tc-note">Works with RAR 4 and RAR 5, solid archives and password-protected files. Split archives (<b>.part1.rar</b>, <b>.part2.rar</b>…) aren\'t supported.</p></aside></div>';
+    buildControls(root.querySelector('.tc-z'), [
+      { k: 'pack', label: 'Zip type', type: 'chips', options: [['deflate', 'Smaller (compressed)'], ['store', 'Fastest (no compression)']] },
+      { k: 'junk', label: 'Leave out junk files (__MACOSX, .DS_Store, Thumbs.db)', type: 'toggle' },
+      { k: 'folder', label: 'Put everything inside a folder named after the RAR', type: 'toggle' }
+    ], S, function () { });
+    var drop = root.querySelector('.drop'), fi = drop.querySelector('input'), list = root.querySelector('.conv-list'), acts = root.querySelector('.conv-actions'), msg = root.querySelector('.rz-msg');
+    if (typeof CompressionStream !== 'function') S.pack = 'store';
+    drop.addEventListener('click', function () { fi.click(); });
+    drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.click(); } });
+    fi.addEventListener('change', function () { addFiles([].slice.call(fi.files)); fi.value = ''; });
+    ctx.on(drop, 'dragover', function (e) { e.preventDefault(); drop.classList.add('is-over'); });
+    ctx.on(drop, 'dragleave', function () { drop.classList.remove('is-over'); });
+    ctx.on(drop, 'drop', function (e) { e.preventDefault(); drop.classList.remove('is-over'); addFiles([].slice.call(e.dataTransfer.files || [])); });
+    unrarLib().catch(function (e) { if (e.notInstalled) msg.innerHTML = '⚠ The RAR reader isn\'t installed on this site yet. <b>Site owner:</b> on GitHub go to <b>Actions → Install AI files → Run workflow</b> (it adds the RAR reader too).'; });
+    function addFiles(fs) {
+      fs.forEach(function (f) {
+        var isRar = /\.rar$/i.test(f.name) || /rar/i.test(f.type);
+        var j = { f: f, state: 'ready', pw: '' };
+        j.el = h('div', { class: 'conv-job rz-job' + (isRar ? '' : ' k-other') });
+        j.el.innerHTML = '<span class="cj-ico">📚</span><span class="cj-name"><strong></strong><small>' + fmtBytes(f.size) + '</small></span><span class="cj-to">→ .zip</span><span class="cj-bar"><i></i></span><span class="cj-act"></span><button type="button" class="cj-x" aria-label="Remove">✕</button>' +
+          '<div class="rz-pw" hidden><input type="password" placeholder="Password" autocomplete="off" aria-label="RAR password"><button type="button" class="btn btn-sm">UNLOCK ⚡</button></div>';
+        j.el.querySelector('strong').textContent = f.name;
+        j.el.querySelector('.cj-x').addEventListener('click', function () { if (j.state === 'busy') return; jobs.splice(jobs.indexOf(j), 1); j.el.remove(); acts.hidden = !jobs.length; });
+        var pwIn = j.el.querySelector('.rz-pw input');
+        j.el.querySelector('.rz-pw button').addEventListener('click', function () { j.pw = pwIn.value; run(j); });
+        pwIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { j.pw = pwIn.value; run(j); } });
+        if (!isRar) { j.state = 'skip'; j.el.querySelector('.cj-act').textContent = 'Not a .rar file'; }
+        else if (/\.part0*[2-9]\d*\.rar$/i.test(f.name)) { j.state = 'skip'; j.el.classList.add('is-err'); j.el.querySelector('.cj-act').textContent = 'Part of a split RAR — not supported'; }
+        else if (f.size > 1.8e9) j.el.querySelector('.cj-act').textContent = '⚠ very big — may run out of memory';
+        list.appendChild(j.el); jobs.push(j);
+      });
+      acts.hidden = !jobs.length;
+    }
+    function setJob(j, f, label) { j.el.querySelector('.cj-bar i').style.width = Math.round(f * 100) + '%'; if (label != null) j.el.querySelector('.cj-act').textContent = label; }
+    async function run(j) {
+      if (j.state === 'busy' || j.state === 'skip') return;
+      j.state = 'busy'; j.el.classList.remove('is-err', 'is-done'); j.el.querySelector('.rz-pw').hidden = true;
+      try {
+        setJob(j, 0.02, 'Starting the RAR reader…');
+        var L = await unrarLib();
+        setJob(j, 0.05, 'Reading ' + fmtBytes(j.f.size) + '…');
+        var data = await j.f.arrayBuffer();
+        var ex = await L.mod.createExtractorFromData({ wasmBinary: L.wasm, data: data, password: j.pw || undefined });
+        var heads = [], total = 0;
+        for (var fh of ex.getFileList().fileHeaders) { heads.push(fh); if (!fh.flags.directory) total += fh.unpSize || 0; }
+        var nFiles = heads.filter(function (x) { return !x.flags.directory; }).length;
+        if (!nFiles) throw new Error('This RAR is empty.');
+        var base = stem(j.f.name).replace(/\.part0*1$/i, ''), entries = [], done = 0, idx = 0, dirs = {};
+        var extracted = ex.extract({ password: j.pw || undefined });
+        for (var af of extracted.files) {
+          var hd = af.fileHeader, nm = String(hd.name || '').replace(/\\/g, '/').replace(/^\/+/, '');
+          if (S.folder) nm = base + '/' + nm;
+          if (hd.flags.directory) { dirs[nm.replace(/\/?$/, '/')] = hd; continue; }
+          if (S.junk && ZipFix.isJunk(nm)) continue;
+          var bytes = af.extraction || new Uint8Array(0), blob = new Blob([bytes]), dos = rarDos(hd.time), en;
+          bytes = null; af.extraction = null;
+          var crc = await ZipFix.crcOfBlob(blob);
+          var packed = null;
+          if (S.pack === 'deflate' && blob.size > 64) {
+            try { packed = await new Response(blob.stream().pipeThrough(new CompressionStream('deflate-raw'))).blob(); } catch (e) { packed = null; }
+            if (packed && packed.size >= blob.size) packed = null;
+          }
+          en = { index: idx++, name: nm, isDir: false, method: packed ? 8 : 0, flags: 0x800, time: dos.time, date: dos.date, crc: crc, csize: packed ? packed.size : blob.size, usize: blob.size, external: 0, internal: 0, madeBy: 20, needed: 20, loose: packed || blob };
+          entries.push(en);
+          done += hd.unpSize || blob.size;
+          setJob(j, 0.08 + 0.8 * (total ? done / total : idx / nFiles), 'Unpacking ' + idx + ' / ' + nFiles + ' · ' + nm.split('/').pop());
+          await new Promise(function (r) { setTimeout(r, 0); });
+        }
+        // keep empty folders
+        Object.keys(dirs).forEach(function (d) {
+          if (entries.some(function (e) { return e.name.indexOf(d) === 0; })) return;
+          var dd = rarDos(dirs[d].time); entries.push({ index: idx++, name: d, isDir: true, method: 0, flags: 0x800, time: dd.time, date: dd.date, crc: 0, csize: 0, usize: 0, external: 0x10, internal: 0, madeBy: 20, needed: 20, loose: new Blob([]) });
+        });
+        if (!entries.length) throw new Error('Nothing left to zip (everything was junk files).');
+        setJob(j, 0.9, 'Building the zip…');
+        var z = { file: null, entries: entries, loose: true };
+        var rows = entries.map(function (e) { return { entry: e, newName: e.name }; });
+        var out = await ZipFix.write(z, rows, { onProgress: function (f) { setJob(j, 0.9 + 0.1 * f); } });
+        var outName = base + '.zip';
+        j.state = 'done'; setJob(j, 1, ''); j.el.classList.add('is-done');
+        var a = j.el.querySelector('.cj-act'); a.innerHTML = '';
+        var b = h('button', { type: 'button', class: 'btn btn-sm' }, '⬇ ZIP · ' + fmtBytes(out.size));
+        b.addEventListener('click', function () { download(out, outName); }); a.appendChild(b);
+        j.el.querySelector('small').textContent = fmtBytes(j.f.size) + ' · ' + (function (n) { return n + (n === 1 ? ' file' : ' files'); })(entries.filter(function (e) { return !e.isDir; }).length);
+        download(out, outName);
+        return true;
+      } catch (e) {
+        console.error(e);
+        j.state = 'ready'; j.el.classList.add('is-err'); setJob(j, 0, '⚠ ' + rarWhy(e));
+        if (e && (e.reason === 'ERAR_MISSING_PASSWORD' || e.reason === 'ERAR_BAD_PASSWORD' || (e.reason === 'ERAR_BAD_DATA' && j.pw))) { var pw = j.el.querySelector('.rz-pw'); pw.hidden = false; pw.querySelector('input').focus(); }
+        return false;
+      }
+    }
+    root.querySelector('[data-run]').addEventListener('click', async function () {
+      var btn = this; btn.disabled = true;
+      for (var i = 0; i < jobs.length; i++) if (jobs[i].state === 'ready') await run(jobs[i]);
+      btn.disabled = false; ctx.api.burst(innerWidth / 2, innerHeight / 2, 20);
+    });
+    root.querySelector('[data-clear]').addEventListener('click', function () { jobs = jobs.filter(function (j) { if (j.state === 'busy') return true; j.el.remove(); return false; }); acts.hidden = !jobs.length; });
+  }
+
+  /* =========================================================
      MOUNT
      ========================================================= */
   var live = [];
@@ -1073,6 +1215,7 @@
     else if (id === 'bgremove') bgTool(body, ctx);
     else if (id === 'convert') convertTool(body, ctx);
     else if (id === 'rename') renameTool(body, ctx);
+    else if (id === 'rar2zip') rarTool(body, ctx);
   }
   function unmountAll() { live.forEach(function (c) { c.offs.forEach(function (o) { o[0].removeEventListener(o[1], o[2]); }); }); live = []; }
 

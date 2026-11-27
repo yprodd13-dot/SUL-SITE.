@@ -113,6 +113,10 @@ GitHub repo → **Actions** → **Install AI files** → **Run workflow**. It ta
 - **Optional logins** through a free Supabase account let people save projects online. The setup steps and SQL code are in the admin's 🎬 Short Editor tab.
 - **Export:** videos export at 720p or 1080p, 30 or 60 fps, as MP4 where the browser supports it and WebM otherwise. You can also save a single frame as a PNG.
 
+## What's new in v5.4: RAR → ZIP tool
+- New tool in 🛠 Tools: drop .rar files, get .zip files. Works with RAR 4 / RAR 5, solid and password-protected archives (it asks for the password). Choose smaller (compressed) or fastest zips, skip junk files, or wrap everything in a folder. Split RARs (.part1.rar…) aren't supported.
+- It uses unrar (the official RAR code) compiled for browsers, stored on your own site. **Run GitHub → Actions → Install AI files → Run workflow once more** — it now installs the RAR reader too (assets/vendor/unrar). The admin 🛠 Tools tab shows when it's installed.
+
 ## What's new in v5: SHORT EDITOR rebuilt (works like CapCut)
 - **Timeline**: drag clips, trim both ends (videos and songs too), split (S), duplicate (Ctrl+D), delete (Del), undo/redo, right-click menu, snap to beats, zoom, reorder layers by dragging their name.
 - **Every setting has a slider.** Every colour can be solid, gradient (2–3 colours) or rainbow, and can flow / colour-cycle / pulse on the beat — including all the MIDI visuals.

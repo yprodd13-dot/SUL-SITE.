@@ -859,3 +859,10 @@ body.pop-lock { overflow: hidden; }
 .page:has(.se-mount), .page.page-wide { max-width: none; padding-left: clamp(6px, 1vw, 16px); padding-right: clamp(6px, 1vw, 16px); }
 .page:has(.se-mount) > .section, .page.page-wide > .section { padding-top: 10px; padding-bottom: 10px; }
 .se-loading { display: grid; place-items: center; min-height: 60vh; font: 400 12px var(--font-ui); color: var(--muted); }
+
+/* rar → zip */
+.rz-msg { margin: 12px 0 0; font-size: 14px; } .rz-msg:empty { display: none; }
+.rz-job .rz-pw { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
+.rz-job .rz-pw[hidden] { display: none; }
+.rz-job .rz-pw input { flex: 1; max-width: 280px; padding: 8px 10px; border: 0; box-shadow: var(--frame); font: inherit; }
+.tc-note { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 14px 0 0; }
